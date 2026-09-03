@@ -16,38 +16,41 @@ from typing import Dict, Optional, Tuple
 # Training effect is conventionally read on a 1.0-5.0 scale.
 TE_MIN, TE_MAX = 1.0, 5.0
 
-# A session whose load equals current fitness is a normal hard day and is
-# treated as costing about a day of recovery.
-RECOVERY_HOURS_PER_CTL_MULTIPLE = 24.0
+# A session of typical size costs about a day of recovery.
+RECOVERY_HOURS_PER_TYPICAL_SESSION = 24.0
 RECOVERY_MIN_HOURS, RECOVERY_MAX_HOURS = 3.0, 72.0
 
-# Below this fitness the ratio becomes meaningless, so a floor stands in.
-MIN_MEANINGFUL_CTL = 15.0
+# Below this the ratio becomes noise, so a floor stands in.
+MIN_REFERENCE_LOAD = 12.0
+
+# ln(2), which places a typical session at exactly 3.0 on the scale.
+_TE_K = 0.6931
 
 
-def aerobic_training_effect(r_tss: Optional[float], ctl: float) -> Tuple[Optional[float], str]:
+def aerobic_training_effect(
+    r_tss: Optional[float], reference_load: float
+) -> Tuple[Optional[float], str]:
     """
-    How much this session moved aerobic fitness, relative to current fitness.
+    How much this session moved aerobic fitness, against the athlete's own norm.
 
-    The same hour costs a beginner far more than a trained athlete, so the
-    session's load is scored against the athlete's own chronic load rather than
-    against an absolute scale. Roughly: half your fitness is maintenance,
-    matching it is a solid session, double is a hard overload.
+    The reference is the athlete's *typical session*, not their chronic daily
+    load. Chronic load is an average across every day including rest days, so
+    for someone training three times a week each session is inherently three or
+    four times that average -- scoring against it marked every ordinary run as
+    overreaching. A typical session now reads 3.0, half of one reads about 2.2,
+    and double reads 4.0.
     """
     if not r_tss or r_tss <= 0:
         return None, "no training load recorded"
 
-    reference = max(ctl, MIN_MEANINGFUL_CTL)
+    reference = max(reference_load, MIN_REFERENCE_LOAD)
     ratio = r_tss / reference
-
-    # Calibrated so half your fitness reads as maintaining, parity as
-    # improving, and roughly 2.5x as the top of the scale.
-    te = 1.0 + 4.0 * (1.0 - math.exp(-0.75 * ratio))
+    te = 1.0 + 4.0 * (1.0 - math.exp(-_TE_K * ratio))
     return round(min(max(te, TE_MIN), TE_MAX), 1), ""
 
 
 def anaerobic_training_effect(
-    hr_zone_seconds: Optional[Dict[str, float]], ctl: float
+    hr_zone_seconds: Optional[Dict[str, float]], reference_load: float
 ) -> Tuple[Optional[float], str]:
     """
     Anaerobic contribution, taken from time spent in the top two heart-rate
@@ -61,9 +64,9 @@ def anaerobic_training_effect(
     if hard_sec <= 0:
         return 0.0, ""
 
-    reference = max(ctl, MIN_MEANINGFUL_CTL)
+    # Twenty minutes above threshold is a hard anaerobic session for anyone.
     minutes = hard_sec / 60.0
-    te = 1.0 + 4.0 * (1.0 - math.exp(-0.05 * minutes * (25.0 / reference)))
+    te = 1.0 + 4.0 * (1.0 - math.exp(-minutes / 12.0))
     return round(min(max(te, TE_MIN), TE_MAX), 1), ""
 
 
@@ -83,22 +86,22 @@ def describe_training_effect(te: Optional[float]) -> str:
 
 def recovery_hours(
     r_tss: Optional[float],
-    ctl: float,
+    reference_load: float,
     tsb: float = 0.0,
     readiness: Optional[float] = None,
 ) -> Tuple[Optional[int], str]:
     """
     Hours until this session is absorbed.
 
-    Scaled from the session's load against chronic load, then adjusted for how
-    fresh the athlete already was: arriving fatigued lengthens recovery, and
-    arriving fresh shortens it slightly.
+    Scaled against a typical session for this athlete, then adjusted for how
+    fresh they already were: arriving fatigued lengthens recovery, arriving
+    fresh shortens it slightly.
     """
     if not r_tss or r_tss <= 0:
         return None, "no training load recorded"
 
-    reference = max(ctl, MIN_MEANINGFUL_CTL)
-    hours = RECOVERY_HOURS_PER_CTL_MULTIPLE * (r_tss / reference)
+    reference = max(reference_load, MIN_REFERENCE_LOAD)
+    hours = RECOVERY_HOURS_PER_TYPICAL_SESSION * (r_tss / reference)
 
     # Accumulated fatigue slows absorption; freshness speeds it a little.
     if tsb < -20:

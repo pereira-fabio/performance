@@ -53,6 +53,9 @@ BASELINE_DAYS = 7
 # "Fastest pace" means the best sustained effort, not a one-sample spike.
 FASTEST_WINDOW_SEC = 30.0
 
+# How many prior sessions define what "typical" means for this athlete.
+TYPICAL_SESSION_WINDOW = 20
+
 # How far a device's reported distance may differ from the measured GPS track
 # before the device figure is treated as broken rather than authoritative.
 # Real devices agree with summed GPS to within a couple of percent.
@@ -79,6 +82,33 @@ class ActivityProcessor:
     def __init__(self, db: Session):
         self.db = db
         self.user = self._get_or_create_user_profile()
+
+    def _typical_session_load(self, sport_type: str, before, fallback) -> float:
+        """
+        The athlete's usual session, used as the yardstick for effort.
+
+        Median rather than mean, so one very long run does not raise the bar
+        for every session after it. Restricted to the same sport, because an
+        hour in the gym and an hour running are not comparable efforts.
+        """
+        rows = (
+            self.db.query(Activity.r_tss)
+            .filter(
+                Activity.sport_type == sport_type,
+                Activity.r_tss.isnot(None),
+                Activity.r_tss > 0,
+                Activity.start_time < before,
+            )
+            .order_by(Activity.start_time.desc())
+            .limit(TYPICAL_SESSION_WINDOW)
+            .all()
+        )
+        loads = [float(r[0]) for r in rows]
+        if len(loads) >= 3:
+            return float(np.median(loads))
+        # Too little history to have a norm yet: treat this session as typical,
+        # which puts it mid-scale rather than at an arbitrary extreme.
+        return float(fallback or 0.0)
 
     @staticmethod
     def _dem_elevation(lats, lngs):
@@ -337,8 +367,6 @@ class ActivityProcessor:
         if r_tss is None:
             unavailable.setdefault("r_tss", "no pace or heart rate basis for training load")
 
-        # Training effect and recovery are relative to current fitness, so the
-        # chronic load standing before this session is the right reference.
         latest_health = (
             self.db.query(DailyHealth)
             .filter(DailyHealth.date <= start_time.date())
@@ -349,9 +377,12 @@ class ActivityProcessor:
         tsb = float(latest_health.tsb) if latest_health else 0.0
         readiness = latest_health.readiness_score if latest_health else None
 
-        te_aerobic, te_reason = aerobic_training_effect(r_tss, ctl)
-        te_anaerobic, _ = anaerobic_training_effect(hr_zone_seconds, ctl)
-        recovery, rec_reason = recovery_hours(r_tss, ctl, tsb, readiness)
+        reference_load = self._typical_session_load(
+            payload.sport_type or "running", start_time, r_tss
+        )
+        te_aerobic, te_reason = aerobic_training_effect(r_tss, reference_load)
+        te_anaerobic, _ = anaerobic_training_effect(hr_zone_seconds, reference_load)
+        recovery, rec_reason = recovery_hours(r_tss, reference_load, tsb, readiness)
         if te_reason:
             unavailable["training_effect"] = te_reason
         if rec_reason:
@@ -363,7 +394,7 @@ class ActivityProcessor:
             # Stated plainly: these are modelled from load, not measured.
             "training_effect": "estimated from training load relative to fitness",
             "recovery_hours": "estimated from training load, form and readiness",
-            "reference_ctl": round(ctl, 1),
+            "reference_session_load": round(reference_load, 1),
         }
 
         # --- persist ---------------------------------------------------

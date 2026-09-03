@@ -121,6 +121,9 @@ class HealthConnectManager(private val context: Context) {
          */
         private const val MIN_SYNCABLE_DURATION_SEC = 60L
 
+        /** How far either side of a session to look for a VO2 max reading. */
+        private const val VO2_LOOKUP_DAYS = 120L
+
         /** Two sessions overlapping by more than this are the same workout. */
         private const val DUPLICATE_OVERLAP_FRACTION = 0.80
     }
@@ -456,14 +459,20 @@ class HealthConnectManager(private val context: Context) {
                     StepsRecord.COUNT_TOTAL, sessionStart, sessionEnd, origins
                 )?.toInt()
 
+                // VO2 max changes over months, not days, so the nearest reading
+                // in either direction is a fair figure for the session. Looking
+                // only backwards leaves every session older than the device's
+                // first reading with nothing at all.
                 val vo2 = try {
                     readAll(
                         Vo2MaxRecord::class,
                         TimeRangeFilter.between(
-                            sessionStart.minus(30, ChronoUnit.DAYS),
-                            sessionEnd.plus(1, ChronoUnit.DAYS)
+                            sessionStart.minus(VO2_LOOKUP_DAYS, ChronoUnit.DAYS),
+                            sessionEnd.plus(VO2_LOOKUP_DAYS, ChronoUnit.DAYS)
                         )
-                    ).maxByOrNull { it.time }?.vo2MillilitersPerMinuteKilogram
+                    ).minByOrNull {
+                        kotlin.math.abs(it.time.epochSecond - sessionStart.epochSecond)
+                    }?.vo2MillilitersPerMinuteKilogram
                 } catch (e: Exception) {
                     Log.w(TAG, "Could not read VO2 max: ${e.message}")
                     null

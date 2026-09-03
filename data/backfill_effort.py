@@ -37,6 +37,15 @@ def main() -> int:
         health = {h.date: h for h in db.query(DailyHealth).all()}
         dates = sorted(health)
 
+        # Effort is judged against the athlete's typical session for that
+        # sport, matching how ingestion does it.
+        import statistics
+        history: dict = {}
+
+        def typical(sport, own):
+            past = history.get(sport, [])
+            return statistics.median(past[-20:]) if len(past) >= 3 else float(own or 0.0)
+
         def fitness_before(day):
             """CTL, TSB and readiness standing on or before a date."""
             prior = [d for d in dates if d <= day]
@@ -48,9 +57,12 @@ def main() -> int:
         changed = 0
         for a in activities:
             ctl, tsb, readiness = fitness_before(a.start_time.date())
-            te_a, _ = aerobic_training_effect(a.r_tss, ctl)
-            te_an, _ = anaerobic_training_effect(a.hr_zone_seconds, ctl)
-            rec, _ = recovery_hours(a.r_tss, ctl, tsb, readiness)
+            reference = typical(a.sport_type, a.r_tss)
+            te_a, _ = aerobic_training_effect(a.r_tss, reference)
+            te_an, _ = anaerobic_training_effect(a.hr_zone_seconds, reference)
+            rec, _ = recovery_hours(a.r_tss, reference, tsb, readiness)
+            if a.r_tss and a.r_tss > 0:
+                history.setdefault(a.sport_type, []).append(float(a.r_tss))
             xp = activity_xp(a.r_tss, a.distance_meters, a.moving_time_sec)
 
             if (a.training_effect_aerobic, a.training_effect_anaerobic,
