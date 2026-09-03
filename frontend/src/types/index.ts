@@ -107,6 +107,11 @@ export interface DashboardSummary {
   // Non-running activity in the last 7 days, keyed by sport. Kept out of the
   // running volume and training-load figures above.
   other_sports_7d?: Record<string, { count: number; km: number; tss: number }>;
+  /** Volume, time and load per sport over 7 and 28 days. */
+  by_sport?: Record<string, {
+    count_7d: number; km_7d: number; time_7d_sec: number; load_7d: number;
+    count_28d: number; km_28d: number; time_28d_sec: number; load_28d: number;
+  }>;
 }
 
 export interface UserProfile {

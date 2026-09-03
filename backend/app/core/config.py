@@ -3,10 +3,10 @@ from typing import Optional
 import os
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "PeakPace Running Analytics"
+    PROJECT_NAME: str = "Performance"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "peakpace-super-secret-key-change-in-production-2026"
-    API_AUTH_TOKEN: str = "peakpace_sync_token_default"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
+    API_AUTH_TOKEN: str = os.getenv("API_AUTH_TOKEN", "")
     
     # Storage and DB paths (designed for TrueNAS NFS/SMB mount or local LXC)
     DATA_DIR: str = os.getenv("DATA_DIR", "/data")

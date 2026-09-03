@@ -5,13 +5,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: peakpace-backend
+    container_name: performance-backend
     restart: unless-stopped
     environment:
-      - PROJECT_NAME=PeakPace Running Analytics
+      - PROJECT_NAME=Performance
       - DATA_DIR=/data
       - DATABASE_URL=sqlite:////db/peakpace.db
-      - API_AUTH_TOKEN=peakpace_sync_token_default
+      # Empty leaves sync open, which is fine on an isolated home network.
+      # Set this to any value to require it, and enter the same value in the
+      # phone app under "API Sync Token".
+      - API_AUTH_TOKEN=
       # Terrain tiles used to recover elevation for devices that record none.
       # Place SRTM .hgt / .hgt.zip files here; run backend/dem_tiles.py to see
       # which tiles your routes need. Leave the directory empty to disable.
@@ -30,7 +33,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: peakpace-backup
+    container_name: performance-backup
     restart: unless-stopped
     depends_on:
       - backend
@@ -48,7 +51,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: peakpace-frontend
+    container_name: performance-frontend
     restart: unless-stopped
     depends_on:
       - backend
@@ -56,5 +59,8 @@ services:
       - "3000:80"
 
 volumes:
+  # Deliberately still named peakpace_db: renaming a volume does not move the
+  # data into it, so the stack would come up against an empty database. The
+  # name is internal and never shown.
   peakpace_db:
     driver: local

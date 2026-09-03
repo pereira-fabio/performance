@@ -1,4 +1,4 @@
-package com.peakpace.sync.data
+package com.performance.app.data
 
 import com.google.gson.FieldNamingPolicy
 import com.google.gson.Gson

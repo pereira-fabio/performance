@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PeakPaceSync"
+rootProject.name = "Performance"
 include(":app")

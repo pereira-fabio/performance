@@ -1,14 +1,16 @@
-# 🏃‍♂️ PeakPace — Scientific Running Analytics & Health Connect Sync
+# Performance
 
-**PeakPace** is a self-hosted running analytics platform and training physiology engine built specifically to surpass the limitations of Strava by providing deep exercise physiology metrics, full ownership of your data, and seamless synchronization with **Android Health Connect**.
+Self-hosted training analytics. Reads running, walking and gym sessions from **Android Health Connect**, computes exercise-physiology metrics from them, and keeps every byte on your own server.
 
-Hosted directly on your **Proxmox LXC container** and backed by **TrueNAS SCALE** storage, PeakPace gives you professional-grade insights into your aerobic base, cardiac drift, and fatigue management.
+Each sport is kept separate: walks and gym work are recorded and shown, but they do not set running records or drive the running fitness curve. Where the data cannot support a metric, the app says so rather than showing a plausible number.
+
+Hosted directly on your **Proxmox LXC container** and backed by **TrueNAS SCALE** storage, Performance gives you professional-grade insights into your aerobic base, cardiac drift, and fatigue management.
 
 ---
 
-## 🌟 Why PeakPace Beats Strava
+## 🌟 Why Performance Beats Strava
 
-| Feature | Strava (Free/Paid) | PeakPace |
+| Feature | Strava (Free/Paid) | Performance |
 | :--- | :--- | :--- |
 | **Aerobic Decoupling ($Pa:HR$)** | ❌ Not available | ✅ **Built-in ($EF_1$ vs $EF_2$ split drift)** |
 | **Performance Management Chart (PMC)** | 🔒 Paywalled & simplified | ✅ **Full Banister Model (CTL, ATL, TSB, ACWR)** |
@@ -26,7 +28,7 @@ Hosted directly on your **Proxmox LXC container** and backed by **TrueNAS SCALE*
 graph TD
     subgraph "Android Phone"
         HC["Android Health Connect\n(Heart Rate, GPS, Cadence, HRV, Sleep)"]
-        APP["PeakPace Native Sync App\n(Kotlin + WorkManager)"]
+        APP["Performance Native Sync App\n(Kotlin + WorkManager)"]
         HC --> APP
     end
 
@@ -64,7 +66,7 @@ $$C_r(i) = 155.4 i^5 - 30.4 i^4 - 43.3 i^3 + 46.3 i^2 + 19.5 i + 3.6 \quad (\tex
 ### 2b. Terrain Elevation Recovery (DEM)
 Many wearables write **no altitude at all** to Health Connect — Nothing X, for example, records a constant `0.0` for every route point, and writes no `ElevationGainedRecord`. Without elevation there is no grade, and without grade GAP is undefined.
 
-PeakPace therefore recovers elevation from the GPS track against a local **SRTM digital elevation model**:
+Performance therefore recovers elevation from the GPS track against a local **SRTM digital elevation model**:
 
 - Bilinear interpolation between DEM posts (nearest-neighbour would stair-step and manufacture false grade spikes).
 - The profile is smoothed over ~60 m of track, then ascent is accumulated with a 3 m threshold. Summing raw differences counts measurement noise as climbing — on a profile carrying 2 m of jitter that turns a 39 m climb into over 1800 m.
@@ -75,7 +77,7 @@ PeakPace therefore recovers elevation from the GPS track against a local **SRTM 
 **Setup:**
 ```bash
 # 1. Find out which tiles your routes need
-docker exec -it peakpace-backend python backend/dem_tiles.py
+docker exec -it performance-backend python backend/dem_tiles.py
 
 # 2. Download those tiles and drop them in DEM_DIR (/data/dem by default),
 #    as NxxEyyy.hgt or the downloaded NxxEyyy.hgt.zip — both are read directly.
@@ -153,7 +155,7 @@ The Android companion application is located in `android-companion/`.
    cd android-companion
    ./gradlew assembleDebug
    ```
-4. On your phone, open **PeakPace Sync**, tap **Grant Health Connect Permissions**, and enter your server URL (`http://<YOUR_PROXMOX_IP>:8000`).
+4. On your phone, open **Performance Sync**, tap **Grant Health Connect Permissions**, and enter your server URL (`http://<YOUR_PROXMOX_IP>:8000`).
 5. Tap **Sync Now to Proxmox** — your runs and physiological data will appear on your web dashboard instantly!
 
 ---
@@ -162,7 +164,7 @@ The Android companion application is located in `android-companion/`.
 
 To test the dashboard immediately with simulated runs showing aerobic decoupling, PRs, and 60 days of PMC history:
 ```bash
-docker exec -it peakpace-backend python backend/seed_demo_data.py
+docker exec -it performance-backend python backend/seed_demo_data.py
 ```
 
 ---

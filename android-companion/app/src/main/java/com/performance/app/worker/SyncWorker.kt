@@ -1,11 +1,11 @@
-package com.peakpace.sync.worker
+package com.performance.app.worker
 
 import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.peakpace.sync.data.HealthConnectManager
-import com.peakpace.sync.data.SyncApiClient
+import com.performance.app.data.HealthConnectManager
+import com.performance.app.data.SyncApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

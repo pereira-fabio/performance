@@ -1,28 +1,31 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // Colours resolve to the CSS variables in index.css, so a single
+      // definition serves both themes and utilities stay readable.
       colors: {
-        dark: {
-          900: '#0b0f19',
-          800: '#111827',
-          700: '#1f2937',
-          600: '#374151',
-        },
-        brand: {
-          cyan: '#06b6d4',
-          teal: '#14b8a6',
-          lime: '#84cc16',
-          amber: '#f59e0b',
-          rose: '#f43f5e',
-          violet: '#8b5cf6',
-        }
-      }
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
+        fg: 'var(--fg)',
+        'fg-strong': 'var(--fg-strong)',
+        muted: 'var(--muted)',
+        faint: 'var(--faint)',
+        line: 'var(--line)',
+        'line-strong': 'var(--line-strong)',
+        accent: 'var(--accent)',
+        positive: 'var(--positive)',
+        caution: 'var(--caution)',
+        negative: 'var(--negative)',
+        run: 'var(--run)',
+        walk: 'var(--walk)',
+        gym: 'var(--gym)',
+      },
+      fontSize: {
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
+      },
+      maxWidth: { content: '54rem' },
     },
   },
   plugins: [],

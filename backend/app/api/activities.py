@@ -10,7 +10,7 @@ router = APIRouter(prefix="/activities", tags=["Activities"])
 @router.get("", response_model=List[ActivitySummaryOut])
 def list_activities(
     skip: int = 0,
-    limit: int = 50,
+    limit: int = Query(500, ge=1, le=2000),
     sport_type: Optional[str] = None,
     db: Session = Depends(get_db)
 ):

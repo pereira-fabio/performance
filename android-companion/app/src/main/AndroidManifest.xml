@@ -34,7 +34,7 @@
     <application
         android:allowBackup="true"
         android:icon="@android:drawable/ic_dialog_info"
-        android:label="PeakPace Sync"
+        android:label="Performance"
         android:roundIcon="@android:drawable/ic_dialog_info"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"

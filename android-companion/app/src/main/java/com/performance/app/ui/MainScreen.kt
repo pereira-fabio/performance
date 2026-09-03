@@ -1,4 +1,4 @@
-package com.peakpace.sync.ui
+package com.performance.app.ui
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
@@ -15,11 +15,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.work.*
-import com.peakpace.sync.data.HealthConnectManager
-import com.peakpace.sync.data.PermissionStatus
-import com.peakpace.sync.data.SyncApiClient
-import com.peakpace.sync.data.WorkoutSessionData
-import com.peakpace.sync.worker.SyncWorker
+import com.performance.app.data.HealthConnectManager
+import com.performance.app.data.PermissionStatus
+import com.performance.app.data.SyncApiClient
+import com.performance.app.data.WorkoutSessionData
+import com.performance.app.worker.SyncWorker
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
@@ -47,7 +47,7 @@ private fun PermissionRow(granted: Boolean, label: String, consequence: String) 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
+fun SyncScreen(
     healthConnectManager: HealthConnectManager,
     permissionEpoch: Int = 0,
     onRequestPermissions: () -> Unit
@@ -59,6 +59,7 @@ fun MainScreen(
     var serverUrl by remember { mutableStateOf(prefs.getString("server_url", "http://192.168.1.100:8000") ?: "") }
     var apiToken by remember { mutableStateOf(prefs.getString("api_token", "") ?: "") }
     var autoSyncEnabled by remember { mutableStateOf(prefs.getBoolean("auto_sync", true)) }
+    var dashboardUrl by remember { mutableStateOf(prefs.getString("dashboard_url", "") ?: "") }
 
     var status by remember { mutableStateOf<PermissionStatus?>(null) }
     var isSyncing by remember { mutableStateOf(false) }
@@ -128,6 +129,23 @@ fun MainScreen(
                                 prefs.edit().putString("api_token", it).apply()
                             },
                             label = { Text("API Sync Token (Optional)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // The dashboard is a separate service from the API, so
+                        // it has its own address. Left blank, it is derived by
+                        // swapping the API port for the web one.
+                        OutlinedTextField(
+                            value = dashboardUrl,
+                            onValueChange = {
+                                dashboardUrl = it
+                                prefs.edit().putString("dashboard_url", it).apply()
+                            },
+                            label = { Text("Dashboard URL (optional)") },
+                            placeholder = { Text(deriveDashboardUrl(serverUrl, null)) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )

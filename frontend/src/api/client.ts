@@ -11,7 +11,9 @@ const api = axios.create({
 });
 
 export const getActivities = async (): Promise<Activity[]> => {
-  const res = await api.get<Activity[]>('/activities');
+  // The dashboard groups by sport client-side, so it needs the whole history
+  // rather than the first page.
+  const res = await api.get<Activity[]>('/activities', { params: { limit: 500 } });
   return res.data;
 };
 

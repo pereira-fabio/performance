@@ -117,4 +117,27 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         "avg_decoupling_28d": round(avg_decoupling, 2) if avg_decoupling else None,
         # Non-running activity in the last 7 days, keyed by sport.
         "other_sports_7d": other_7d,
+        # Per-sport totals so each tab can show its own figures without the
+        # sports being mixed into one meaningless aggregate.
+        "by_sport": _by_sport(all_7d, all_28d),
     }
+
+
+def _by_sport(acts_7d, acts_28d):
+    """Volume, time and load for every sport present, over 7 and 28 days."""
+    sports = {a.sport_type for a in acts_28d} | {a.sport_type for a in acts_7d}
+    out = {}
+    for sport in sports:
+        w = [a for a in acts_7d if a.sport_type == sport]
+        m = [a for a in acts_28d if a.sport_type == sport]
+        out[sport] = {
+            "count_7d": len(w),
+            "km_7d": round(sum(a.distance_meters or 0 for a in w) / 1000.0, 2),
+            "time_7d_sec": round(sum(a.moving_time_sec or 0 for a in w)),
+            "load_7d": round(sum(a.r_tss or 0 for a in w), 1),
+            "count_28d": len(m),
+            "km_28d": round(sum(a.distance_meters or 0 for a in m) / 1000.0, 2),
+            "time_28d_sec": round(sum(a.moving_time_sec or 0 for a in m)),
+            "load_28d": round(sum(a.r_tss or 0 for a in m), 1),
+        }
+    return out

@@ -30,7 +30,7 @@ except Exception as e:
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    description="Scientific Running Physiology & Analytics Engine with Health Connect Sync"
+    description="Training analytics from Health Connect: running, walking and gym."
 )
 
 # CORS configuration

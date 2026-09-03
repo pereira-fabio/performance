@@ -2,36 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * One palette, two themes. Every colour is a token here and nowhere else, so
+ * the light and dark variants cannot drift apart. The OS setting chooses.
+ */
+:root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --fg: #18181b;
+  --fg-strong: #09090b;
+  --muted: #71717a;
+  --faint: #a1a1aa;
+  --line: #e4e4e7;
+  --line-strong: #d4d4d8;
+
+  /* Accents carry meaning, never decoration. */
+  --accent: #2563eb;
+  --positive: #059669;
+  --caution: #d97706;
+  --negative: #dc2626;
+
+  /* Each sport keeps one hue across every view. */
+  --run: #2563eb;
+  --walk: #0891b2;
+  --gym: #7c3aed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --fg: #e4e4e7;
+    --fg-strong: #fafafa;
+    --muted: #8b8b93;
+    --faint: #5c5c63;
+    --line: #232326;
+    --line-strong: #2f2f34;
+
+    --accent: #60a5fa;
+    --positive: #34d399;
+    --caution: #fbbf24;
+    --negative: #f87171;
+
+    --run: #60a5fa;
+    --walk: #22d3ee;
+    --gym: #a78bfa;
+  }
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
 body {
-  margin: 0;
-  background-color: #0b0f19;
-  color: #f3f4f6;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
 }
 
-.font-mono {
-  font-family: 'JetBrains Mono', monospace;
+/* Figures line up in columns when they share a width. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+::selection { background: var(--accent); color: #fff; }
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
-
-/* Leaflet map dark mode styling */
-.leaflet-container {
-  background-color: #0f172a !important;
-  border-radius: 0.75rem;
-}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

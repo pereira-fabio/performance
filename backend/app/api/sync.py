@@ -14,7 +14,9 @@ from backend.app.services.activity_processor import ActivityProcessor
 router = APIRouter(prefix="/sync", tags=["Sync & Ingestion"])
 
 def verify_token(authorization: Optional[str] = Header(None)):
-    if settings.API_AUTH_TOKEN and settings.API_AUTH_TOKEN != "peakpace_sync_token_default":
+    # An empty token leaves sync open, which is the default for an isolated
+    # home network. Setting API_AUTH_TOKEN to anything enforces it.
+    if settings.API_AUTH_TOKEN:
         if not authorization or authorization.replace("Bearer ", "") != settings.API_AUTH_TOKEN:
             raise HTTPException(status_code=401, detail="Invalid sync authentication token")
     return True
