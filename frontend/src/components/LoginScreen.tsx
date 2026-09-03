@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Logo } from './Shell';
 import { getAuthStatus, login, register, AuthStatus } from '../api/client';
 import { input, button } from './Modal';
+import { describeError } from '../lib/errors';
 
 export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }) => {
   const [status, setStatus] = useState<AuthStatus | null>(null);
@@ -18,7 +19,7 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
         // Nobody has registered yet, so there is nothing to sign in to.
         if (!s.has_accounts) setMode('register');
       })
-      .catch(() => setError('Cannot reach the server.'));
+      .catch((err) => setError(describeError(err)));
   }, []);
 
   const submit = async (e: React.FormEvent) => {
@@ -30,7 +31,7 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
       else await login(username, password);
       onSignedIn();
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Something went wrong.');
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }

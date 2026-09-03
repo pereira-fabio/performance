@@ -5,22 +5,32 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.app.core.config import settings
 from backend.app.core.database import engine, Base, ensure_schema
+from backend.app.core.migrations import migrate_to_accounts
 # Import models to ensure they are registered with Base.metadata
 from backend.app.models import models
 from backend.app.api import auth, sync, activities, metrics, settings as settings_api
 
 # Create database tables automatically with SMB fallback
+def _prepare(eng):
+    """Restructure before SQLAlchemy inspects, then create what is missing."""
+    url = str(eng.url)
+    if url.startswith("sqlite"):
+        path = url.replace("sqlite:///", "")
+        if path:
+            migrate_to_accounts(path)
+    Base.metadata.create_all(bind=eng)
+    ensure_schema(eng)
+
+
 try:
-    Base.metadata.create_all(bind=engine)
-    ensure_schema(engine)
+    _prepare(engine)
 except Exception as e:
     print(f"⚠️ Initial database table creation failed: {e}. Retrying with local container storage...")
     local_dir = "/app/data"
     os.makedirs(local_dir, exist_ok=True)
     from sqlalchemy import create_engine
     engine = create_engine(f"sqlite:///{local_dir}/peakpace.db", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    ensure_schema(engine)
+    _prepare(engine)
     # Rebind the session factory, otherwise every request keeps using the
     # engine that just failed and the fallback database is never read.
     import backend.app.core.database as _db

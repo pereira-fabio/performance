@@ -16,6 +16,7 @@ import {
   logout, setUnauthorizedHandler,
 } from './api/client';
 import { loadSession } from './lib/auth';
+import { describeError } from './lib/errors';
 
 export const App: React.FC = () => {
   const [tab, setTab] = useState<TabKey>('home');
@@ -48,7 +49,7 @@ export const App: React.FC = () => {
       getUserProfile().then((p) => setAthlete(p.name)).catch(() => {});
       setError(null);
     } catch (err: any) {
-      setError(err?.message ?? 'Could not reach the server');
+      setError(describeError(err, 'Could not load your data'));
     } finally {
       setRefreshing(false);
     }

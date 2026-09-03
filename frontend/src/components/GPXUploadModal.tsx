@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { uploadGPX } from '../api/client';
 import { Activity } from '../types';
 import { Modal, input, button } from './Modal';
+import { describeError } from '../lib/errors';
 
 export const GPXUploadModal: React.FC<{
   isOpen: boolean; onClose: () => void; onUploaded: (a: Activity) => void;
@@ -18,7 +19,7 @@ export const GPXUploadModal: React.FC<{
       setFile(null);
       onClose();
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Could not read that file');
+      setError(describeError(err, 'Could not read that file'));
     } finally {
       setBusy(false);
     }
