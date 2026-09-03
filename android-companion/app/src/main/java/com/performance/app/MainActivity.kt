@@ -12,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,34 +72,19 @@ private fun AppRoot(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("peakpace_prefs", Context.MODE_PRIVATE) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
-    var menuOpen by rememberSaveable { mutableStateOf(false) }
     // A fragment on the dashboard URL, so opening the profile reuses the web
     // screen rather than reimplementing the same editor natively.
     var dashboardFragment by rememberSaveable { mutableStateOf<String?>(null) }
     val serverUrl = prefs.getString("server_url", "") ?: ""
 
-    BackHandler(enabled = settingsOpen || menuOpen) {
-        if (settingsOpen) settingsOpen = false else menuOpen = false
-    }
+    BackHandler(enabled = settingsOpen) { settingsOpen = false }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // The dashboard is the app. It carries its own header, so the only
         // chrome around it is a single way into settings.
         Column(Modifier.fillMaxSize()) {
-            MenuStrip(onOpen = { menuOpen = true })
+            ConnectionStrip(onOpen = { settingsOpen = true })
             DashboardScreen(serverUrl, dashboardFragment)
-        }
-
-        if (menuOpen) {
-            AppMenu(
-                onDismiss = { menuOpen = false },
-                onProfile = {
-                    menuOpen = false
-                    // Cache-busted so re-selecting it reopens the screen.
-                    dashboardFragment = "profile-" + System.currentTimeMillis()
-                },
-                onSettings = { menuOpen = false; settingsOpen = true },
-            )
         }
 
         AnimatedVisibility(
@@ -115,49 +102,32 @@ private fun AppRoot(
     }
 }
 
-/** One control, top left; the dashboard below supplies the branding. */
+/**
+ * The only chrome the app adds: a way into the server connection.
+ *
+ * Everything about the athlete lives in the dashboard below, which has its own
+ * menu, so this is deliberately not a second navigation -- it is one control
+ * for the one thing the dashboard cannot configure about itself.
+ */
 @Composable
-private fun MenuStrip(onOpen: () -> Unit) {
+private fun ConnectionStrip(onOpen: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .height(40.dp)
             .padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.Start,
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onOpen) {
-            Text("\u2261", fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                imageVector = Icons.Filled.Settings,
+                contentDescription = "Server connection",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AppMenu(
-    onDismiss: () -> Unit,
-    onProfile: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss,
-                     containerColor = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
-            MenuRow("Profile", "Heart rate, thresholds, weight", onProfile)
-            MenuRow("Settings", "Server connection, permissions, sync", onSettings)
-        }
-    }
-}
-
-@Composable
-private fun MenuRow(title: String, subtitle: String, onClick: () -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp)
-    ) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

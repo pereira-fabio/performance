@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.work.*
@@ -84,6 +85,11 @@ fun SettingsScreen(
 
     var serverUrl by remember { mutableStateOf(prefs.getString("server_url", "http://192.168.178.160:8000") ?: "") }
     var apiToken by remember { mutableStateOf(prefs.getString("api_token", "") ?: "") }
+    var username by remember { mutableStateOf(prefs.getString("username", "") ?: "") }
+    var password by remember { mutableStateOf("") }
+    var signedInAs by remember { mutableStateOf(prefs.getString("signed_in_as", null)) }
+    var signingIn by remember { mutableStateOf(false) }
+    var signInError by remember { mutableStateOf<String?>(null) }
     var autoSync by remember { mutableStateOf(prefs.getBoolean("auto_sync", true)) }
     var excluded by remember {
         mutableStateOf(prefs.getStringSet("excluded_origins", emptySet())?.toSet() ?: emptySet())
@@ -135,15 +141,73 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
                     shape = RoundedCornerShape(10.dp)
                 )
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = apiToken,
-                    onValueChange = { apiToken = it; prefs.edit().putString("api_token", it).apply() },
-                    label = { Text("Sync token") },
-                    supportingText = { Text("Leave empty unless the server requires one") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    shape = RoundedCornerShape(10.dp)
-                )
+            }
+
+            SectionLabel("Account")
+            Card {
+                if (signedInAs != null) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Signed in as $signedInAs", fontSize = 14.sp,
+                                 fontWeight = FontWeight.Medium)
+                            Text("Your activities sync to this account only", fontSize = 12.sp,
+                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = {
+                            prefs.edit().remove("api_token").remove("signed_in_as").apply()
+                            apiToken = ""; signedInAs = null; password = ""
+                        }) { Text("Sign out") }
+                    }
+                } else {
+                    Text(
+                        "Sign in with the account you created in the dashboard. Everyone on " +
+                            "this server keeps their own training separate.",
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it; prefs.edit().putString("username", it).apply() },
+                        label = { Text("Username") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = password, onValueChange = { password = it },
+                        label = { Text("Password") }, singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            signingIn = true; signInError = null
+                            scope.launch {
+                                val res = SyncApiClient(serverUrl).signIn(username.trim(), password)
+                                res.onSuccess { r ->
+                                    // Only the token is kept; the password is not stored.
+                                    prefs.edit()
+                                        .putString("api_token", r.token)
+                                        .putString("signed_in_as", r.displayName ?: r.username)
+                                        .apply()
+                                    apiToken = r.token
+                                    signedInAs = r.displayName ?: r.username
+                                    password = ""
+                                }.onFailure { signInError = it.message }
+                                signingIn = false
+                            }
+                        },
+                        enabled = !signingIn && serverUrl.isNotBlank() &&
+                            username.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)
+                    ) { Text(if (signingIn) "Signing in…" else "Sign in") }
+
+                    signInError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
 
             SectionLabel("Health Connect")
@@ -287,7 +351,8 @@ fun SettingsScreen(
                             }
                         }
                     },
-                    enabled = !syncing && serverUrl.isNotBlank() && status?.core == true,
+                    enabled = !syncing && serverUrl.isNotBlank() &&
+                        status?.core == true && signedInAs != null,
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)
                 ) {
                     if (syncing) {

@@ -15,7 +15,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from backend.app.models.models import (
-    Activity, ActivityStream, ActivitySplit, BestEffort, DailyHealth, UserProfile,
+    Activity, ActivityStream, ActivitySplit, BestEffort, DailyHealth, UserProfile, User,
 )
 from backend.app.models.schemas import HealthConnectSessionPayload
 from backend.app.physiology.resample import build_timeline, Timeline
@@ -98,6 +98,7 @@ class ActivityProcessor:
         rows = (
             self.db.query(Activity.r_tss)
             .filter(
+                Activity.user_id == self.account.id,
                 Activity.sport_type == sport_type,
                 Activity.r_tss.isnot(None),
                 Activity.r_tss > 0,
@@ -389,7 +390,8 @@ class ActivityProcessor:
 
         latest_health = (
             self.db.query(DailyHealth)
-            .filter(DailyHealth.date <= start_time.date())
+            .filter(DailyHealth.user_id == self.account.id,
+                    DailyHealth.date <= start_time.date())
             .order_by(DailyHealth.date.desc())
             .first()
         )
@@ -420,7 +422,8 @@ class ActivityProcessor:
         # --- persist ---------------------------------------------------
         existing = (
             self.db.query(Activity)
-            .filter(Activity.external_id == payload.session_id)
+            .filter(Activity.user_id == self.account.id,
+                    Activity.external_id == payload.session_id)
             .first()
         )
 
@@ -462,7 +465,7 @@ class ActivityProcessor:
                 self.db.refresh(existing)
                 return existing
 
-        activity = existing or Activity(external_id=payload.session_id)
+        activity = existing or Activity(external_id=payload.session_id, user_id=self.account.id)
         if existing:
             # Re-sync updates in place. Recreating the row would mint a new id
             # every hour and break any link to the activity.
@@ -672,14 +675,16 @@ class ActivityProcessor:
 
     # ------------------------------------------------------------------
     def _update_daily_pmc(self, target_date=None):
-        earliest = self.db.query(Activity).order_by(Activity.start_time.asc()).first()
+        earliest = (self.db.query(Activity)
+                    .filter(Activity.user_id == self.account.id)
+                    .order_by(Activity.start_time.asc()).first())
         if not earliest:
             return
 
         today = datetime.utcnow().date()
         end_date = max(today, target_date) if target_date else today
 
-        activities = self.db.query(Activity).all()
+        activities = self.db.query(Activity).filter(Activity.user_id == self.account.id).all()
         daily_tss: Dict[Any, float] = {}
         for a in activities:
             # CTL and ATL describe running fitness and fatigue. Folding walks
@@ -699,7 +704,8 @@ class ActivityProcessor:
         )
 
         existing = {
-            dh.date: dh for dh in self.db.query(DailyHealth).all()
+            dh.date: dh
+            for dh in self.db.query(DailyHealth).filter(DailyHealth.user_id == self.account.id).all()
         }
         # Baselines are rolling means over the preceding days, so the recovery
         # score can compare today against the athlete's own recent normal.
@@ -710,7 +716,7 @@ class ActivityProcessor:
             d = pt["date"]
             dh = existing.get(d)
             if not dh:
-                dh = DailyHealth(date=d)
+                dh = DailyHealth(user_id=self.account.id, date=d)
                 self.db.add(dh)
                 existing[d] = dh
 

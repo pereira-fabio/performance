@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData } from '../types';
+import { loadSession, saveSession } from '../lib/auth';
 
 /**
  * Served by nginx the API is same-origin, so a relative base is right. Loaded
@@ -15,10 +16,55 @@ const API_BASE = apiBaseFromHash() ?? '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
+
+// Every request carries the session, and a rejected session clears itself so
+// the app falls back to the sign-in screen rather than silently failing.
+api.interceptors.request.use((config) => {
+  const session = loadSession();
+  if (session?.token) config.headers.Authorization = `Bearer ${session.token}`;
+  return config;
+});
+
+let onUnauthorized: (() => void) | null = null;
+export const setUnauthorizedHandler = (fn: () => void) => { onUnauthorized = fn; };
+
+api.interceptors.response.use(
+  (r) => r,
+  (error) => {
+    if (error?.response?.status === 401) {
+      saveSession(null);
+      onUnauthorized?.();
+    }
+    return Promise.reject(error);
+  }
+);
+
+export interface AuthStatus {
+  has_accounts: boolean;
+  accounts: number;
+  unclaimed_activities: number;
+}
+
+export const getAuthStatus = async (): Promise<AuthStatus> =>
+  (await api.get<AuthStatus>('/auth/status')).data;
+
+export const register = async (username: string, password: string, display_name?: string) => {
+  const res = await api.post('/auth/register', { username, password, display_name });
+  saveSession(res.data);
+  return res.data;
+};
+
+export const login = async (username: string, password: string) => {
+  const res = await api.post('/auth/login', { username, password });
+  saveSession(res.data);
+  return res.data;
+};
+
+export const logout = async () => {
+  try { await api.post('/auth/logout'); } finally { saveSession(null); }
+};
 
 export const getActivities = async (): Promise<Activity[]> => {
   // The dashboard groups by sport client-side, so it needs the whole history

@@ -1,4 +1,7 @@
-from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, Text, ForeignKey, Date, JSON
+from sqlalchemy import (
+    Column, String, Integer, Float, DateTime, Boolean, Text, ForeignKey, Date, JSON,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -7,11 +10,42 @@ from backend.app.core.database import Base
 def generate_uuid():
     return str(uuid.uuid4())
 
+class User(Base):
+    """An athlete with their own data. Everything else hangs off this."""
+    __tablename__ = "users"
+
+    id = Column(String(64), primary_key=True, default=generate_uuid)
+    username = Column(String(64), unique=True, index=True, nullable=False)
+    display_name = Column(String(128), nullable=True)
+    password_hash = Column(String(256), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AuthToken(Base):
+    """
+    A session, held server-side so it can be revoked.
+
+    Opaque rather than self-describing: a stolen token is useless once deleted,
+    which a signed token would not be until it expired.
+    """
+    __tablename__ = "auth_tokens"
+
+    token = Column(String(64), primary_key=True)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    label = Column(String(64), nullable=True)   # which client created it
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+
 class Activity(Base):
     __tablename__ = "activities"
     
     id = Column(String(64), primary_key=True, default=generate_uuid)
-    external_id = Column(String(128), unique=True, index=True, nullable=True) # Health Connect session ID
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
+    # Unique per athlete, not globally: two people can sync the same shared
+    # workout, and one must not overwrite the other's copy.
+    external_id = Column(String(128), index=True, nullable=True)
     name = Column(String(255), nullable=False, default="Running Session")
     sport_type = Column(String(64), default="running")
     
@@ -79,6 +113,8 @@ class Activity(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
+    __table_args__ = (UniqueConstraint("user_id", "external_id", name="uq_activity_user_external"),)
+
     splits = relationship("ActivitySplit", back_populates="activity", cascade="all, delete-orphan")
     streams = relationship("ActivityStream", back_populates="activity", uselist=False, cascade="all, delete-orphan")
     best_efforts = relationship("BestEffort", back_populates="activity", cascade="all, delete-orphan")
@@ -134,7 +170,10 @@ class BestEffort(Base):
 
 class DailyHealth(Base):
     __tablename__ = "daily_health"
-    
+
+    # Composite key: one row per athlete per day.
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"),
+                     primary_key=True, index=True)
     date = Column(Date, primary_key=True, index=True)
     resting_hr = Column(Integer, nullable=True)
     hrv_rmssd = Column(Float, nullable=True) # Heart Rate Variability RMSSD in ms
@@ -155,9 +194,12 @@ class DailyHealth(Base):
 
 
 class UserProfile(Base):
+    """Physiological settings, one row per athlete."""
     __tablename__ = "user_profile"
-    
-    id = Column(Integer, primary_key=True, default=1)
+
+    id = Column(String(64), primary_key=True, default=generate_uuid)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"),
+                     unique=True, index=True, nullable=True)
     name = Column(String(128), default="Runner")
     gender = Column(String(16), default="male")
     max_hr = Column(Integer, default=190)

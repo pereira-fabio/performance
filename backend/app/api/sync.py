@@ -8,31 +8,25 @@ import gpxpy
 from backend.app.core.database import get_db
 from backend.app.core.config import settings
 from backend.app.models.schemas import HealthConnectSessionPayload, DailyHealthPayload, ActivityDetailOut
-from backend.app.models.models import DailyHealth, Activity
+from backend.app.models.models import DailyHealth, Activity, User
+from backend.app.api.auth import current_user
 from backend.app.services.activity_processor import ActivityProcessor
 
 router = APIRouter(prefix="/sync", tags=["Sync & Ingestion"])
 
-def verify_token(authorization: Optional[str] = Header(None)):
-    # An empty token leaves sync open, which is the default for an isolated
-    # home network. Setting API_AUTH_TOKEN to anything enforces it.
-    if settings.API_AUTH_TOKEN:
-        if not authorization or authorization.replace("Bearer ", "") != settings.API_AUTH_TOKEN:
-            raise HTTPException(status_code=401, detail="Invalid sync authentication token")
-    return True
 
 @router.post("/session", response_model=ActivityDetailOut)
 def sync_session(
     payload: HealthConnectSessionPayload,
     db: Session = Depends(get_db),
-    authorized: bool = Depends(verify_token)
+    user: User = Depends(current_user),
 ):
     """
     Primary ingestion endpoint for the Android Health Connect companion app.
     Ingests exercise session with GPS route, HR series, cadence series, and speed series.
     """
     try:
-        processor = ActivityProcessor(db)
+        processor = ActivityProcessor(db, user)
         activity = processor.process_health_connect_session(payload)
         return activity
     except ValueError as e:
@@ -50,15 +44,16 @@ def sync_session(
 def sync_daily_health(
     payload: DailyHealthPayload,
     db: Session = Depends(get_db),
-    authorized: bool = Depends(verify_token)
+    user: User = Depends(current_user),
 ):
     """
     Syncs daily wellness metrics from Health Connect (Resting HR, HRV RMSSD, Sleep, VO2 Max).
     """
     try:
-        record = db.query(DailyHealth).filter(DailyHealth.date == payload.date).first()
+        record = (db.query(DailyHealth)
+                  .filter(DailyHealth.user_id == user.id, DailyHealth.date == payload.date).first())
         if not record:
-            record = DailyHealth(date=payload.date)
+            record = DailyHealth(user_id=user.id, date=payload.date)
             db.add(record)
             
         if payload.resting_hr is not None:
@@ -76,7 +71,7 @@ def sync_daily_health(
             
         db.commit()
         
-        processor = ActivityProcessor(db)
+        processor = ActivityProcessor(db, user)
         processor._update_daily_pmc(payload.date)
         
         return {"status": "success", "date": str(payload.date)}
@@ -89,7 +84,8 @@ def sync_daily_health(
 @router.post("/upload-gpx", response_model=ActivityDetailOut)
 async def upload_gpx(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     contents = await file.read()
     gpx = gpxpy.parse(contents.decode("utf-8", errors="ignore"))
@@ -137,7 +133,7 @@ async def upload_gpx(
     )
     
     try:
-        processor = ActivityProcessor(db)
+        processor = ActivityProcessor(db, user)
         return processor.process_health_connect_session(payload)
     except ValueError as e:
         db.rollback()

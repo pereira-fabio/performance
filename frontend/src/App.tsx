@@ -6,13 +6,16 @@ import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
 import { Menu } from './components/Menu';
+import { LoginScreen } from './components/LoginScreen';
 import { GPXUploadModal } from './components/GPXUploadModal';
 import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
 import { SportKey, TabKey, bucketOf } from './lib/format';
 import {
   getActivities, getActivityDetail, getDashboardSummary,
   getPMCData, getPersonalRecords, deleteActivity, getHome, getUserProfile,
+  logout, setUnauthorizedHandler,
 } from './api/client';
+import { loadSession } from './lib/auth';
 
 export const App: React.FC = () => {
   const [tab, setTab] = useState<TabKey>('home');
@@ -28,6 +31,7 @@ export const App: React.FC = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [athlete, setAthlete] = useState<string | undefined>();
+  const [session, setSession] = useState(() => loadSession());
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const load = async () => {
@@ -50,7 +54,11 @@ export const App: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  // A rejected session drops straight back to sign-in rather than leaving the
+  // dashboard sitting there failing every request.
+  useEffect(() => { setUnauthorizedHandler(() => setSession(null)); }, []);
+
+  useEffect(() => { if (session) load(); }, [session]);
 
   // The Android app opens these views by loading the page with a fragment,
   // so the same screens are reachable from its menu without duplicating them.
@@ -87,6 +95,10 @@ export const App: React.FC = () => {
     load();
   };
 
+  if (!session) {
+    return <LoginScreen onSignedIn={() => setSession(loadSession())} />;
+  }
+
   if (selected) {
     return (
       <Shell tab={tab} onTab={(t) => { setSelected(null); setTab(t); }} counts={counts}
@@ -118,7 +130,8 @@ export const App: React.FC = () => {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} athlete={athlete}
             onProfile={() => { setMenuOpen(false); setProfileOpen(true); }}
             onSettings={() => { setMenuOpen(false); setSettingsOpen(true); }}
-            onImport={() => { setMenuOpen(false); setUploadOpen(true); }} />
+            onImport={() => { setMenuOpen(false); setUploadOpen(true); }}
+            onSignOut={async () => { await logout(); setSession(null); }} />
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={load} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
                         onUpdated={load} activityCount={activities.length} />

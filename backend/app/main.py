@@ -7,7 +7,7 @@ from backend.app.core.config import settings
 from backend.app.core.database import engine, Base, ensure_schema
 # Import models to ensure they are registered with Base.metadata
 from backend.app.models import models
-from backend.app.api import sync, activities, metrics, settings as settings_api
+from backend.app.api import auth, sync, activities, metrics, settings as settings_api
 
 # Create database tables automatically with SMB fallback
 try:
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 # Include API Routers
+app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(sync.router, prefix=settings.API_V1_STR)
 app.include_router(activities.router, prefix=settings.API_V1_STR)
 app.include_router(metrics.router, prefix=settings.API_V1_STR)

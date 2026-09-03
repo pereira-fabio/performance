@@ -8,6 +8,7 @@ interface MenuProps {
   onSettings: () => void;
   onImport: () => void;
   athlete?: string;
+  onSignOut: () => void;
 }
 
 const Item: React.FC<{ label: string; hint?: string; icon: React.ReactNode; onClick: () => void }> = ({
@@ -30,7 +31,7 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onImport, athlete,
+  open, onClose, onProfile, onSettings, onImport, onSignOut, athlete,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -69,8 +70,12 @@ export const Menu: React.FC<MenuProps> = ({
                 onClick={onImport} />
         </div>
 
-        <div className="mt-auto px-5 py-4 border-t border-line text-xs text-faint">
-          Self-hosted · your data stays on your server
+        <div className="mt-auto border-t border-line">
+          <Item label="Sign out" icon={svg('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4|M16 17l5-5-5-5|M21 12H9')}
+                onClick={onSignOut} />
+          <div className="px-5 pb-4 text-xs text-faint">
+            Self-hosted · your data stays on your server
+          </div>
         </div>
       </nav>
     </div>

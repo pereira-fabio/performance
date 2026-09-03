@@ -73,8 +73,10 @@ export const HomeView: React.FC<{ data: HomeData | null; onTab: (t: SportKey) =>
           <Stat label="Distance" value={totals.km.toFixed(0)} unit="km" sub="all time" />
           <Stat label="Time" value={totals.hours.toFixed(0)} unit="h" sub={`${totals.activities} sessions`} />
           <Stat label="Fitness" value={Math.round(form.ctl)} tone="accent" sub="running CTL" />
+          {/* The subtitle describes resting heart rate, so it is omitted
+              rather than saying "not recorded" under the VO2 max figure. */}
           <Stat label="VO₂ max" value={data.vo2_max ? Math.round(data.vo2_max) : '—'}
-                sub={data.resting_hr ? `resting ${data.resting_hr} bpm` : 'not recorded'} />
+                sub={data.resting_hr ? `resting ${data.resting_hr} bpm` : undefined} />
         </StatGrid>
       </Card>
 

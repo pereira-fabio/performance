@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, date
 import numpy as np
 
 from backend.app.core.database import get_db
-from backend.app.models.models import DailyHealth, BestEffort, Activity, UserProfile
+from backend.app.models.models import DailyHealth, BestEffort, Activity, UserProfile, User
+from backend.app.api.auth import current_user
 from backend.app.core.sports import RUNNING_SPORTS, is_running
 from backend.app.physiology.progress import (
     level_for_xp, evaluate_achievements, attribute_scores, _streak_weeks,
@@ -17,7 +18,8 @@ router = APIRouter(prefix="/metrics", tags=["Metrics & Physiology Trends"])
 @router.get("/pmc", response_model=List[PMCPointOut])
 def get_pmc_chart(
     days: int = Query(90, ge=7, le=730),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """
     Returns Performance Management Chart (PMC) time series data:
@@ -26,21 +28,21 @@ def get_pmc_chart(
     start_date = datetime.utcnow().date() - timedelta(days=days)
     records = (
         db.query(DailyHealth)
-        .filter(DailyHealth.date >= start_date)
+        .filter(DailyHealth.user_id == user.id, DailyHealth.date >= start_date)
         .order_by(DailyHealth.date.asc())
         .all()
     )
     return records
 
 @router.get("/records", response_model=List[BestEffortOut])
-def get_personal_records(db: Session = Depends(get_db)):
+def get_personal_records(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """Returns all-time personal records across standard running distances."""
     # Join to the activity so efforts recorded before sport filtering existed,
     # or on a walk, cannot appear as running records.
     all_efforts = (
         db.query(BestEffort)
         .join(Activity, Activity.id == BestEffort.activity_id)
-        .filter(Activity.sport_type.in_(RUNNING_SPORTS))
+        .filter(Activity.user_id == user.id, Activity.sport_type.in_(RUNNING_SPORTS))
         .order_by(BestEffort.time_seconds.asc())
         .all()
     )
@@ -59,7 +61,7 @@ def get_personal_records(db: Session = Depends(get_db)):
     return records
 
 @router.get("/summary")
-def get_dashboard_summary(db: Session = Depends(get_db)):
+def get_dashboard_summary(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """
     Returns high-level training metrics:
     - 7-day volume & TSS
@@ -72,8 +74,8 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     d7 = today - timedelta(days=7)
     d28 = today - timedelta(days=28)
     
-    all_7d = db.query(Activity).filter(Activity.start_time >= datetime.combine(d7, datetime.min.time())).all()
-    all_28d = db.query(Activity).filter(Activity.start_time >= datetime.combine(d28, datetime.min.time())).all()
+    all_7d = db.query(Activity).filter(Activity.user_id == user.id, Activity.start_time >= datetime.combine(d7, datetime.min.time())).all()
+    all_28d = db.query(Activity).filter(Activity.user_id == user.id, Activity.start_time >= datetime.combine(d28, datetime.min.time())).all()
 
     # Headline volume is running volume; other sports are reported separately
     # rather than silently inflating the weekly total.
@@ -99,7 +101,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         entry["km"] = round(entry["km"], 2)
         entry["tss"] = round(entry["tss"], 1)
     
-    latest_health = db.query(DailyHealth).order_by(DailyHealth.date.desc()).first()
+    latest_health = db.query(DailyHealth).filter(DailyHealth.user_id == user.id).order_by(DailyHealth.date.desc()).first()
     
     # Decoupling trend
     decoupling_values = [a.aerobic_decoupling_pct for a in acts_28d if a.aerobic_decoupling_pct is not None]
@@ -147,7 +149,7 @@ def _by_sport(acts_7d, acts_28d):
 
 
 @router.get("/home")
-def get_home(db: Session = Depends(get_db)):
+def get_home(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """
     The overview: progression, balance across sports, and standing milestones.
 
@@ -155,7 +157,7 @@ def get_home(db: Session = Depends(get_db)):
     levels and attribute axes are a presentation layer over that, not new
     measurements.
     """
-    activities = db.query(Activity).order_by(Activity.start_time.asc()).all()
+    activities = db.query(Activity).filter(Activity.user_id == user.id).order_by(Activity.start_time.asc()).all()
     if not activities:
         return {"empty": True}
 
@@ -176,7 +178,7 @@ def get_home(db: Session = Depends(get_db)):
         e["km"] = round(e["km"], 1)
         e["hours"] = round(e["seconds"] / 3600.0, 1)
 
-    latest = db.query(DailyHealth).order_by(DailyHealth.date.desc()).first()
+    latest = db.query(DailyHealth).filter(DailyHealth.user_id == user.id).order_by(DailyHealth.date.desc()).first()
     ctl = float(latest.ctl) if latest else 0.0
     tsb = float(latest.tsb) if latest else 0.0
 
@@ -195,7 +197,7 @@ def get_home(db: Session = Depends(get_db)):
     best_effort_rows = (
         db.query(BestEffort)
         .join(Activity, Activity.id == BestEffort.activity_id)
-        .filter(Activity.sport_type.in_(RUNNING_SPORTS))
+        .filter(Activity.user_id == user.id, Activity.sport_type.in_(RUNNING_SPORTS))
         .all()
     )
     best_by_label: Dict[str, float] = {}
@@ -207,7 +209,7 @@ def get_home(db: Session = Depends(get_db)):
     decoupling = [a.aerobic_decoupling_pct for a in runs if a.aerobic_decoupling_pct is not None]
     avg_decoupling = float(np.mean(decoupling[-10:])) if decoupling else None
 
-    profile = db.query(UserProfile).first()
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     threshold = float(profile.threshold_pace_sec) if profile else 300.0
 
     attributes = attribute_scores(
@@ -228,7 +230,7 @@ def get_home(db: Session = Depends(get_db)):
     vo2 = next((a.vo2_max for a in reversed(activities) if a.vo2_max), None)
     if vo2 is None:
         vo2_row = (
-            db.query(DailyHealth).filter(DailyHealth.vo2_max.isnot(None))
+            db.query(DailyHealth).filter(DailyHealth.user_id == user.id, DailyHealth.vo2_max.isnot(None))
             .order_by(DailyHealth.date.desc()).first()
         )
         vo2 = vo2_row.vo2_max if vo2_row else None
