@@ -36,7 +36,7 @@ fun apiBaseFor(serverUrl: String): String {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun DashboardScreen(serverUrl: String) {
+fun DashboardScreen(serverUrl: String, fragment: String? = null) {
     val apiBase = remember(serverUrl) { apiBaseFor(serverUrl) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -55,8 +55,16 @@ fun DashboardScreen(serverUrl: String) {
         return
     }
 
-    val url = remember(apiBase) {
-        "$LOCAL_DASHBOARD#api=" + URLEncoder.encode(apiBase, "UTF-8")
+    // The fragment carries both the API base and, when the menu asks for it,
+    // which screen to open -- so the web dashboard stays the single
+    // implementation of the profile editor.
+    val url = remember(apiBase, fragment) {
+        val base = "$LOCAL_DASHBOARD#api=" + URLEncoder.encode(apiBase, "UTF-8")
+        if (fragment.isNullOrBlank()) base else "$base&view=$fragment"
+    }
+
+    LaunchedEffect(url) {
+        webView?.let { if (it.url != url) it.loadUrl(url) }
     }
 
     Box(Modifier.fillMaxSize()) {

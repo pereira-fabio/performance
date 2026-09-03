@@ -110,7 +110,7 @@ fun SettingsScreen(
             TopAppBar(
                 title = { Text("Settings", fontSize = 17.sp, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    TextButton(onClick = onClose) { Text("Done") }
+                    TextButton(onClick = onClose) { Text("Back") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -162,18 +162,36 @@ fun SettingsScreen(
                     PermissionLine(s.background, "Background access",
                         "Without this the automatic sync cannot read anything.")
 
-                    if (s.missing.isNotEmpty()) {
-                        Spacer(Modifier.height(12.dp))
-                        Text(
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        if (s.missing.isEmpty())
+                            "All granted. Routes, past data and background access can be " +
+                                "changed at any time under Additional access in Health Connect."
+                        else
                             "Routes, past data and background access are granted separately, " +
                                 "under Additional access in Health Connect.",
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    // Always offered: permissions are worth reviewing and
+                    // revoking, not only granting, so hiding this once
+                    // everything was allowed left no way back in.
+                    Button(
+                        onClick = onRequestPermissions,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = if (s.missing.isEmpty())
+                            ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ) else ButtonDefaults.buttonColors()
+                    ) {
+                        Text(
+                            when {
+                                !s.core -> "Grant permissions"
+                                s.missing.isEmpty() -> "Review permissions"
+                                else -> "Grant remaining permissions"
+                            }
                         )
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = onRequestPermissions, modifier = Modifier.fillMaxWidth(),
-                               shape = RoundedCornerShape(10.dp)) {
-                            Text(if (s.core) "Grant remaining" else "Grant permissions")
-                        }
                     }
                 }
             }

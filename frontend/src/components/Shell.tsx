@@ -21,22 +21,28 @@ interface ShellProps {
   tab: TabKey;
   onTab: (t: TabKey) => void;
   counts: Record<SportKey, number>;
-  onSettings: () => void;
-  onUpload: () => void;
+  onMenu: () => void;
   onRefresh: () => void;
   refreshing: boolean;
   children: React.ReactNode;
 }
 
 export const Shell: React.FC<ShellProps> = ({
-  tab, onTab, counts, onSettings, onUpload, onRefresh, refreshing, children,
+  tab, onTab, counts, onMenu, onRefresh, refreshing, children,
 }) => (
   <div className="min-h-screen bg-bg text-fg">
     <header className="sticky top-0 z-20 bg-bg/95 backdrop-blur border-b border-line">
       <div className="mx-auto max-w-content px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-2.5">
-            <Logo />
+          <div className="flex items-center gap-1.5">
+            <button onClick={onMenu} aria-label="Menu"
+              className="p-2 -ml-2 rounded-lg text-muted hover:text-fg hover:bg-surface transition">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <Logo size={22} />
             <span className="text-base font-bold tracking-tight text-fg-strong">Performance</span>
           </div>
           <div className="flex items-center gap-1">
@@ -45,20 +51,6 @@ export const Shell: React.FC<ShellProps> = ({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    strokeWidth="2" strokeLinecap="round" className={refreshing ? 'animate-spin' : ''}>
                 <path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" />
-              </svg>
-            </button>
-            <button onClick={onUpload} title="Import GPX"
-              className="p-2 rounded-lg text-muted hover:text-fg hover:bg-surface transition">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />
-              </svg>
-            </button>
-            <button onClick={onSettings} title="Settings"
-              className="p-2 rounded-lg text-muted hover:text-fg hover:bg-surface transition">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.6 3.09V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.6h.09a2 2 0 0 1 0 4H21a1.65 1.65 0 0 0-1.51 1z" />
               </svg>
             </button>
           </div>

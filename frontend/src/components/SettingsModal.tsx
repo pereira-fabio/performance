@@ -35,7 +35,7 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onU
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Athlete profile"
+    <Modal isOpen={isOpen} onClose={onClose} title="Profile"
            subtitle="Used for heart-rate zones, training load and threshold pace">
       {!profile ? (
         <p className="text-[13px] text-muted">Loading…</p>
@@ -74,21 +74,7 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onU
 
           {note && <p className="text-2xs text-negative">{note}</p>}
 
-          <div className="flex items-center justify-between pt-1">
-            <button type="button"
-              onClick={async () => {
-                setNote(null);
-                try {
-                  await recalculateMetrics();
-                  // Thresholds apply to new activities and to the fitness curve;
-                  // stored per-activity load is not recomputed.
-                  setNote('Fitness chart rebuilt. Stored per-activity load is unchanged.');
-                  onUpdated();
-                } catch { setNote('Rebuild failed'); }
-              }}
-              className={`${button} text-muted hover:text-fg`}>
-              Rebuild chart
-            </button>
+          <div className="flex items-center justify-end pt-1">
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className={`${button} text-muted hover:text-fg`}>Cancel</button>
               <button type="submit" disabled={saving}
