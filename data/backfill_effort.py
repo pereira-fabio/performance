@@ -22,6 +22,7 @@ from backend.app.physiology.effect import (                  # noqa: E402
     aerobic_training_effect, anaerobic_training_effect, recovery_hours,
 )
 from backend.app.physiology.progress import activity_xp      # noqa: E402
+from backend.app.services.activity_processor import MAX_PLAUSIBLE_IF  # noqa: E402
 
 
 def main() -> int:
@@ -55,7 +56,22 @@ def main() -> int:
             return float(h.ctl or 0.0), float(h.tsb or 0.0), h.readiness_score
 
         changed = 0
+        capped = 0
         for a in activities:
+            # Correct implausible load first, so everything derived from it is
+            # computed against the corrected figure.
+            if a.intensity_factor and a.intensity_factor > MAX_PLAUSIBLE_IF and a.moving_time_sec:
+                a.r_tss = round((a.moving_time_sec * MAX_PLAUSIBLE_IF ** 2) / 36.0, 1)
+                a.intensity_factor = MAX_PLAUSIBLE_IF
+                quality = dict(a.data_quality or {})
+                quality["intensity_capped"] = {
+                    "capped_to": MAX_PLAUSIBLE_IF,
+                    "reason": "pace implies an intensity that cannot be sustained",
+                    "corrected_by": "backfill",
+                }
+                a.data_quality = quality
+                capped += 1
+
             ctl, tsb, readiness = fitness_before(a.start_time.date())
             reference = typical(a.sport_type, a.r_tss)
             te_a, _ = aerobic_training_effect(a.r_tss, reference)
@@ -76,6 +92,8 @@ def main() -> int:
         db.commit()
         total_xp = sum(a.xp or 0 for a in activities)
         with_te = sum(1 for a in activities if a.training_effect_aerobic is not None)
+        if capped:
+            print(f"Corrected implausible training load on {capped} activity(ies).")
         print(f"Updated {changed} of {len(activities)} activities.")
         print(f"Training effect now present on {with_te}/{len(activities)}.")
         print(f"Total experience: {total_xp:,} XP")
