@@ -56,6 +56,10 @@ FASTEST_WINDOW_SEC = 30.0
 # How many prior sessions define what "typical" means for this athlete.
 TYPICAL_SESSION_WINDOW = 20
 
+# Intensity above this is not sustainable over a session, so it indicates bad
+# pace data rather than a heroic effort.
+MAX_PLAUSIBLE_IF = 1.35
+
 # How far a device's reported distance may differ from the measured GPS track
 # before the device figure is treated as broken rather than authoritative.
 # Real devices agree with summed GPS to within a couple of percent.
@@ -357,6 +361,22 @@ class ActivityProcessor:
                 gap_speeds_mps=speed_for_rtss, dt=tl.dt,
                 threshold_pace_sec=self.user.threshold_pace_sec,
             )
+            # Sustaining much above threshold pace for a whole session is not
+            # physically plausible; an intensity that high means the pace is
+            # wrong, usually from glitched GPS over a very short session. Load
+            # grows with the square of intensity, so left alone a 100-second
+            # walk can outweigh a real run and carry that error into training
+            # effect, recovery and experience.
+            if intensity_factor and intensity_factor > MAX_PLAUSIBLE_IF:
+                capped = MAX_PLAUSIBLE_IF
+                moving = float(np.count_nonzero(tl.moving_mask()) * tl.dt)
+                quality["intensity_capped"] = {
+                    "measured": intensity_factor,
+                    "capped_to": capped,
+                    "reason": "pace implies an intensity that cannot be sustained",
+                }
+                r_tss = round((moving * capped ** 2) / 36.0, 1)
+                intensity_factor = capped
             rtss_basis = "grade_adjusted" if tl.gap_speed is not None else "raw_pace_no_elevation"
             if reason:
                 unavailable["r_tss"] = reason
