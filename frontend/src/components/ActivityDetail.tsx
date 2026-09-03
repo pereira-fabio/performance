@@ -98,7 +98,10 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
       {route.length > 1 && (
         <Section title="Route">
           <div className="h-64 rounded-lg overflow-hidden border border-line">
-            <MapContainer bounds={route as any} style={{ height: '100%', width: '100%' }}
+            {/* Keyed on the activity: Leaflet holds onto its container, and
+                reusing one across activities leaves the previous route drawn. */}
+            <MapContainer key={activity.id} bounds={route as any}
+                          style={{ height: '100%', width: '100%' }}
                           scrollWheelZoom={false} attributionControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <Polyline positions={route} pathOptions={{ color: SPORTS[bucket].color, weight: 3 }} />
