@@ -3,30 +3,29 @@ package com.performance.app
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import com.performance.app.data.HealthConnectManager
 import com.performance.app.ui.DashboardScreen
-import com.performance.app.ui.SyncScreen
-
-private enum class Destination(val label: String) {
-    Dashboard("Dashboard"),
-    Sync("Sync"),
-}
+import com.performance.app.ui.PerformanceTheme
+import com.performance.app.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var healthConnectManager: HealthConnectManager
-
-    // Bumped when permissions change, so the sync screen re-reads its state
-    // rather than the activity rebuilding its whole content tree.
     private val permissionEpoch = mutableIntStateOf(0)
 
     private val requestPermissionsLauncher = registerForActivityResult(
@@ -38,11 +37,13 @@ class MainActivity : ComponentActivity() {
         healthConnectManager = HealthConnectManager(this)
 
         setContent {
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
-                AppScaffold(
+            PerformanceTheme {
+                AppRoot(
                     healthConnectManager = healthConnectManager,
                     permissionEpoch = permissionEpoch.intValue,
-                    onRequestPermissions = { requestPermissionsLauncher.launch(healthConnectManager.permissions) }
+                    onRequestPermissions = {
+                        requestPermissionsLauncher.launch(healthConnectManager.permissions)
+                    }
                 )
             }
         }
@@ -57,42 +58,55 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AppScaffold(
+private fun AppRoot(
     healthConnectManager: HealthConnectManager,
     permissionEpoch: Int,
     onRequestPermissions: () -> Unit,
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("peakpace_prefs", Context.MODE_PRIVATE) }
-    var destination by rememberSaveable { mutableStateOf(Destination.Dashboard) }
-
-    // Read on each recomposition so returning from Sync picks up an edited URL.
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     val serverUrl = prefs.getString("server_url", "") ?: ""
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                Destination.entries.forEach { d ->
-                    NavigationBarItem(
-                        selected = destination == d,
-                        onClick = { destination = d },
-                        label = { Text(d.label) },
-                        icon = {},
-                        alwaysShowLabel = true
-                    )
-                }
-            }
+    BackHandler(enabled = settingsOpen) { settingsOpen = false }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        // The dashboard is the app. It carries its own header, so the only
+        // chrome around it is a single way into settings.
+        Column(Modifier.fillMaxSize()) {
+            SettingsStrip(onOpen = { settingsOpen = true })
+            DashboardScreen(serverUrl)
         }
-    ) { padding ->
-        Surface(Modifier.padding(padding)) {
-            when (destination) {
-                Destination.Dashboard -> DashboardScreen(serverUrl)
-                Destination.Sync -> SyncScreen(
-                    healthConnectManager = healthConnectManager,
-                    permissionEpoch = permissionEpoch,
-                    onRequestPermissions = onRequestPermissions
-                )
-            }
+
+        AnimatedVisibility(
+            visible = settingsOpen,
+            enter = slideInHorizontally { it },
+            exit = slideOutHorizontally { it },
+        ) {
+            SettingsScreen(
+                healthConnectManager = healthConnectManager,
+                permissionEpoch = permissionEpoch,
+                onRequestPermissions = onRequestPermissions,
+                onClose = { settingsOpen = false },
+            )
+        }
+    }
+}
+
+/** A single unobtrusive control; the dashboard below supplies the branding. */
+@Composable
+private fun SettingsStrip(onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .height(40.dp)
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onOpen) {
+            Text("⚙", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
