@@ -147,6 +147,7 @@ class HealthConnectManager(private val context: Context) {
     /** Requested alongside the core set; absence degrades rather than blocks. */
     val enrichmentPermissions: Set<String> = setOf(
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(ElevationGainedRecord::class),
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(StepsCadenceRecord::class),
@@ -437,7 +438,14 @@ class HealthConnectManager(private val context: Context) {
                 val elevation = aggregateOrNull(
                     ElevationGainedRecord.ELEVATION_GAINED_TOTAL, sessionStart, sessionEnd, origins
                 )?.inMeters
+                // Active calories, not total. Total includes basal metabolism,
+                // which for a 74-minute run reads about 1800 kcal against 840
+                // actually burned running -- not the figure anyone means by
+                // "calories burned" for a workout. Total is the fallback for
+                // devices that only write it.
                 val calories = aggregateOrNull(
+                    ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL, sessionStart, sessionEnd, origins
+                )?.inKilocalories ?: aggregateOrNull(
                     TotalCaloriesBurnedRecord.ENERGY_TOTAL, sessionStart, sessionEnd, origins
                 )?.inKilocalories
 
