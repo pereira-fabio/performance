@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: peakpace-backend
+    restart: unless-stopped
+    environment:
+      - PROJECT_NAME=PeakPace Running Analytics
+      - DATA_DIR=/data
+      - DATABASE_URL=sqlite:////db/peakpace.db
+      - API_AUTH_TOKEN=peakpace_sync_token_default
+      # Terrain tiles used to recover elevation for devices that record none.
+      # Place SRTM .hgt / .hgt.zip files here; run backend/dem_tiles.py to see
+      # which tiles your routes need. Leave the directory empty to disable.
+      - DEM_DIR=/data/dem
+    volumes:
+      - peakpace_db:/db
+      - /opt/peakpace/data:/data
+    ports:
+      - "8000:8000"
+
+  # Hourly database backup. Declared here rather than run as a stray
+  # container so it is visible, versioned and restarted with the stack.
+  # Reuses the backend image; the script itself lives on the mounted data
+  # volume, so changing it needs no rebuild.
+  backup:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: peakpace-backup
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - DATABASE_URL=sqlite:////db/peakpace.db
+      - BACKUP_DIR=/data/backups
+      - BACKUP_INTERVAL_SEC=3600
+      - MAX_BACKUPS=30
+    volumes:
+      - peakpace_db:/db
+      - /opt/peakpace/data:/data
+    entrypoint: ["python", "/data/backup.py", "--loop"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: peakpace-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  peakpace_db:
+    driver: local

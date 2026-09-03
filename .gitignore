@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Personal health data. NEVER commit these.
+#
+# The database and any Health Connect export contain a year of GPS traces,
+# which reveal home address and daily routine, plus heart rate and sleep.
+# Everything under data/ is runtime state, not source.
+# ---------------------------------------------------------------------------
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/backups/
+health_connect_export.db
+*health_connect*.db
+*.sqlite
+*.sqlite3
+
+# Elevation tiles: large binaries, freely re-downloadable.
+# backend/dem_tiles.py reports which ones a given athlete needs.
+data/dem/
+*.hgt
+*.hgt.zip
+
+# ---------------------------------------------------------------------------
+# Build output
+# ---------------------------------------------------------------------------
+*.apk
+*.aab
+android-companion/build/
+android-companion/app/build/
+android-companion/.gradle/
+android-companion/.cxx/
+frontend/dist/
+frontend/node_modules/
+frontend/.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ---------------------------------------------------------------------------
+# Local / machine-specific configuration
+# ---------------------------------------------------------------------------
+# Contains the absolute path to this machine's Android SDK.
+android-companion/local.properties
+.idea/
+android-companion/.idea/
+.vscode/
+*.iml
+
+# Secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
