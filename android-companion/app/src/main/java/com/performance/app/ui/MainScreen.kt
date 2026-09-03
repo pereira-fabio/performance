@@ -56,10 +56,9 @@ fun SyncScreen(
     val coroutineScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("peakpace_prefs", Context.MODE_PRIVATE) }
 
-    var serverUrl by remember { mutableStateOf(prefs.getString("server_url", "http://192.168.1.100:8000") ?: "") }
+    var serverUrl by remember { mutableStateOf(prefs.getString("server_url", "http://192.168.178.160:8000") ?: "") }
     var apiToken by remember { mutableStateOf(prefs.getString("api_token", "") ?: "") }
     var autoSyncEnabled by remember { mutableStateOf(prefs.getBoolean("auto_sync", true)) }
-    var dashboardUrl by remember { mutableStateOf(prefs.getString("dashboard_url", "") ?: "") }
 
     var status by remember { mutableStateOf<PermissionStatus?>(null) }
     var isSyncing by remember { mutableStateOf(false) }
@@ -117,7 +116,7 @@ fun SyncScreen(
                                 prefs.edit().putString("server_url", it).apply()
                             },
                             label = { Text("Server Base URL") },
-                            placeholder = { Text("http://192.168.1.150:8000") },
+                            placeholder = { Text("http://192.168.178.160:8000") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -133,22 +132,6 @@ fun SyncScreen(
                             singleLine = true
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // The dashboard is a separate service from the API, so
-                        // it has its own address. Left blank, it is derived by
-                        // swapping the API port for the web one.
-                        OutlinedTextField(
-                            value = dashboardUrl,
-                            onValueChange = {
-                                dashboardUrl = it
-                                prefs.edit().putString("dashboard_url", it).apply()
-                            },
-                            label = { Text("Dashboard URL (optional)") },
-                            placeholder = { Text(deriveDashboardUrl(serverUrl, null)) },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
                     }
                 }
             }

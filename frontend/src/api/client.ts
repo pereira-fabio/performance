@@ -1,7 +1,17 @@
 import axios from 'axios';
 import { Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort } from '../types';
 
-const API_BASE = '/api/v1';
+/**
+ * Served by nginx the API is same-origin, so a relative base is right. Loaded
+ * from local assets inside the Android app there is no origin to be relative
+ * to, so the host passes an absolute base in the URL fragment.
+ */
+const apiBaseFromHash = (): string | null => {
+  const m = /(?:^|[#&])api=([^&]+)/.exec(window.location.hash);
+  return m ? decodeURIComponent(m[1]).replace(/\/$/, '') : null;
+};
+
+const API_BASE = apiBaseFromHash() ?? '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,

@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { pace, duration, km, dateLabel, timeLabel, bucketOf, SPORTS, whyMissing } from '../lib/format';
-import { Stat, StatRow, Section, Empty } from './Stat';
+import { Stat, StatGrid, Section, Empty, Card } from './Stat';
 
 interface Props {
   activity: Activity;
@@ -65,7 +65,7 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
         </p>
       )}
 
-      <StatRow cols={4}>
+      <Card className="mt-4"><StatGrid cols={4}>
         {showPace
           ? <Stat label="Distance" value={km(activity.distance_meters)} unit="km"
                   title={whyMissing(activity, 'distance')} />
@@ -78,10 +78,10 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
         <Stat label={showPace ? 'Avg HR' : 'Max HR'}
               value={(showPace ? activity.avg_hr : activity.max_hr) ?? <Missing />}
               unit={(showPace ? activity.avg_hr : activity.max_hr) ? 'bpm' : ''} />
-      </StatRow>
+      </StatGrid></Card>
 
       {showPace && (
-        <StatRow cols={4}>
+        <Card className="mt-4"><StatGrid cols={4}>
           <Stat label="GAP" value={activity.gap_pace_sec_km ? pace(activity.gap_pace_sec_km) : <Missing reason={whyMissing(activity, 'gap_pace')} />}
                 unit={activity.gap_pace_sec_km ? '/km' : ''} />
           <Stat label="Ascent"
@@ -92,7 +92,7 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
                 tone={activity.aerobic_decoupling_pct != null && activity.aerobic_decoupling_pct > 5 ? 'caution' : 'default'} />
           <Stat label="Load" value={Math.round(activity.r_tss ?? 0)}
                 sub={activity.data_quality?.rtss_basis === 'banister_trimp_fallback' ? 'from heart rate' : undefined} />
-        </StatRow>
+        </StatGrid></Card>
       )}
 
       {route.length > 1 && (

@@ -13,42 +13,38 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import java.net.URLEncoder
+
+/** The dashboard ships inside the app; only data comes from the server. */
+private const val LOCAL_DASHBOARD = "file:///android_asset/www/index.html"
 
 /**
- * Derive the dashboard address from the sync address.
+ * Build the API base the bundled dashboard should call.
  *
- * The API and the web front end are separate services on separate ports, so a
- * single URL cannot serve both. Rather than making the user configure two, the
- * common Docker layout (API on 8000, dashboard on 3000) is assumed and can be
- * overridden when it does not hold.
+ * The page itself is local, so it has no origin to be relative to and must be
+ * told where the API lives. The sync address already points at it.
  */
-fun deriveDashboardUrl(serverUrl: String, override: String?): String {
-    if (!override.isNullOrBlank()) return override.trim()
+fun apiBaseFor(serverUrl: String): String {
     val base = serverUrl.trim().trimEnd('/')
     if (base.isEmpty()) return ""
-    return if (base.endsWith(":8000")) base.removeSuffix(":8000") + ":3000" else base
+    return "$base/api/v1"
 }
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun DashboardScreen(serverUrl: String, dashboardOverride: String?) {
-    val context = LocalContext.current
-    val url = remember(serverUrl, dashboardOverride) { deriveDashboardUrl(serverUrl, dashboardOverride) }
-
+fun DashboardScreen(serverUrl: String) {
+    val apiBase = remember(serverUrl) { apiBaseFor(serverUrl) }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
     var failure by remember { mutableStateOf<String?>(null) }
-    var reloadKey by remember { mutableIntStateOf(0) }
 
-    // Inside the dashboard, Back should navigate the page, not leave the app.
     BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
 
-    if (url.isBlank()) {
+    if (apiBase.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
                 "Set your server address on the Sync tab first.",
@@ -57,6 +53,10 @@ fun DashboardScreen(serverUrl: String, dashboardOverride: String?) {
             )
         }
         return
+    }
+
+    val url = remember(apiBase) {
+        "$LOCAL_DASHBOARD#api=" + URLEncoder.encode(apiBase, "UTF-8")
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -69,56 +69,44 @@ fun DashboardScreen(serverUrl: String, dashboardOverride: String?) {
                     )
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    // The page is our own bundled asset, and it has to reach the
+                    // API on the local network. Without this a file:// page is
+                    // barred from making those requests.
+                    settings.allowFileAccess = true
+                    @Suppress("DEPRECATION")
+                    settings.allowUniversalAccessFromFileURLs = true
                     settings.loadWithOverviewMode = true
                     settings.useWideViewPort = true
+
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, u: String?) { loading = false }
                         override fun onReceivedError(
                             view: WebView?, request: WebResourceRequest?, error: WebResourceError?
                         ) {
-                            // Only the main document failing is worth reporting;
-                            // a missing sub-resource should not blank the screen.
                             if (request?.isForMainFrame == true) {
                                 loading = false
-                                failure = "Could not reach $url"
+                                failure = "Could not load the dashboard."
                             }
                         }
                     }
                     webView = this
                     loadUrl(url)
                 }
-            },
-            update = { view ->
-                if (reloadKey > 0) {
-                    view.tag?.let { }
-                }
             }
         )
 
-        if (loading) {
-            LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
-        }
+        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
 
         failure?.let { message ->
             Surface(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                shape = MaterialTheme.shapes.medium,
-                tonalElevation = 2.dp
+                shape = MaterialTheme.shapes.medium, tonalElevation = 2.dp
             ) {
                 Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(message, fontSize = 14.sp, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Check the address on the Sync tab and that the server is running.",
-                        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
                     Spacer(Modifier.height(12.dp))
                     Button(onClick = {
-                        failure = null
-                        loading = true
-                        reloadKey++
-                        webView?.loadUrl(url)
+                        failure = null; loading = true; webView?.loadUrl(url)
                     }) { Text("Retry") }
                 }
             }

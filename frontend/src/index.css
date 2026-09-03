@@ -17,15 +17,19 @@
   --line-strong: #d4d4d8;
 
   /* Accents carry meaning, never decoration. */
-  --accent: #2563eb;
+  --accent: #f2542d;
+  --accent-soft: #fef1ed;
   --positive: #059669;
   --caution: #d97706;
   --negative: #dc2626;
 
   /* Each sport keeps one hue across every view. */
-  --run: #2563eb;
-  --walk: #0891b2;
+  --run: #f2542d;
+  --walk: #0e7490;
   --gym: #7c3aed;
+
+  --card: #ffffff;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.05);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -39,14 +43,18 @@
     --line: #232326;
     --line-strong: #2f2f34;
 
-    --accent: #60a5fa;
+    --accent: #ff6b41;
+    --accent-soft: #2a1710;
     --positive: #34d399;
     --caution: #fbbf24;
     --negative: #f87171;
 
-    --run: #60a5fa;
+    --run: #ff6b41;
     --walk: #22d3ee;
     --gym: #a78bfa;
+
+    --card: #141416;
+    --card-shadow: none;
   }
 }
 
@@ -55,7 +63,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
 }

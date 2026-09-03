@@ -1,7 +1,7 @@
 import React from 'react';
 import { Activity, DashboardSummary, PMCPoint, BestEffort } from '../types';
 import { SportKey, SPORTS, km, duration } from '../lib/format';
-import { Stat, StatRow, Section, Empty } from './Stat';
+import { Stat, StatGrid, Section, Empty, Card } from './Stat';
 import { ActivityRow } from './ActivityRow';
 import { PMCChart } from './PMCChart';
 import { PersonalRecordsView } from './PersonalRecordsView';
@@ -37,7 +37,7 @@ export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, reco
   return (
     <>
       {/* Distance-based sports lead with volume; gym leads with time and effort. */}
-      <StatRow cols={tab === 'runs' ? 4 : 3}>
+      <Card><StatGrid cols={tab === 'runs' ? 4 : 3}>
         {SPORTS[tab].hasPace ? (
           <Stat label="This week" value={weekKm > 0 ? (weekKm / 1000).toFixed(1) : '—'} unit="km"
                 sub={`${weekCount} ${weekCount === 1 ? 'session' : 'sessions'}`} />
@@ -55,18 +55,18 @@ export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, reco
             tone={formLabel(summary.tsb).tone}
           />
         )}
-      </StatRow>
+      </StatGrid></Card>
 
       {/* Fitness and fatigue describe running specifically, so they appear
           only here rather than being reused for sports they do not model. */}
       {tab === 'runs' && summary && (
-        <StatRow cols={3}>
-          <Stat label="Fitness" value={Math.round(summary.ctl)} sub="42-day load" />
+        <Card className="mt-4"><StatGrid cols={3}>
+          <Stat label="Fitness" value={Math.round(summary.ctl)} sub="42-day load" tone="accent" />
           <Stat label="Fatigue" value={Math.round(summary.atl)} sub="7-day load" />
           <Stat label="Decoupling" value={summary.avg_decoupling_28d != null ? `${summary.avg_decoupling_28d}%` : '—'}
                 sub="28-day average"
                 tone={summary.avg_decoupling_28d != null && summary.avg_decoupling_28d > 5 ? 'caution' : 'default'} />
-        </StatRow>
+        </StatGrid></Card>
       )}
 
       {tab === 'runs' && pmc.length > 0 && (
@@ -77,7 +77,8 @@ export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, reco
         <Section title="Personal records"><PersonalRecordsView records={records} /></Section>
       )}
 
-      <Section title="History" aside={<span className="text-2xs text-faint tnum">{activities.length}</span>}>
+      <Section title="History" flush
+               aside={<span className="text-xs text-faint tnum">{activities.length} total</span>}>
         {activities.length === 0 ? (
           <Empty>No {SPORTS[tab].label.toLowerCase()} recorded yet.</Empty>
         ) : (

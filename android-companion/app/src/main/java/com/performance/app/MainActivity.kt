@@ -68,7 +68,6 @@ private fun AppScaffold(
 
     // Read on each recomposition so returning from Sync picks up an edited URL.
     val serverUrl = prefs.getString("server_url", "") ?: ""
-    val dashboardOverride = prefs.getString("dashboard_url", "")
 
     Scaffold(
         bottomBar = {
@@ -87,7 +86,7 @@ private fun AppScaffold(
     ) { padding ->
         Surface(Modifier.padding(padding)) {
             when (destination) {
-                Destination.Dashboard -> DashboardScreen(serverUrl, dashboardOverride)
+                Destination.Dashboard -> DashboardScreen(serverUrl)
                 Destination.Sync -> SyncScreen(
                     healthConnectManager = healthConnectManager,
                     permissionEpoch = permissionEpoch,
