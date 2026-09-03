@@ -56,6 +56,15 @@ class Activity(Base):
     hr_zone_seconds = Column(JSON, nullable=True) # {"z1": 600, "z2": 1800, ...}
     pace_zone_seconds = Column(JSON, nullable=True)
     
+    # Effort and outcome figures. training_effect_* and recovery_hours are
+    # estimates derived from load; steps, calories and vo2_max come from the
+    # device. See physiology/effect.py for how the estimates are formed.
+    steps = Column(Integer, nullable=True)
+    training_effect_aerobic = Column(Float, nullable=True)
+    training_effect_anaerobic = Column(Float, nullable=True)
+    recovery_hours = Column(Integer, nullable=True)
+    xp = Column(Integer, default=0)
+
     # Data quality: which channels the device actually provided, how much of
     # the session they covered, and why any metric was withheld.
     hr_coverage = Column(Float, default=0.0) # 0-1 fraction of session with a real HR sample

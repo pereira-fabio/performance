@@ -5,6 +5,10 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { pace, duration, km, dateLabel, timeLabel, bucketOf, SPORTS, whyMissing } from '../lib/format';
+
+const TE_LABEL = (te?: number) =>
+  te == null ? '' : te < 1.5 ? 'Easy' : te < 2.5 ? 'Maintaining'
+    : te < 3.5 ? 'Improving' : te < 4.5 ? 'Highly improving' : 'Overreaching';
 import { Stat, StatGrid, Section, Empty, Card } from './Stat';
 
 interface Props {
@@ -94,6 +98,49 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
                 sub={activity.data_quality?.rtss_basis === 'banister_trimp_fallback' ? 'from heart rate' : undefined} />
         </StatGrid></Card>
       )}
+
+      {/* Effort: what the session cost and what it is likely to have built.
+          Both are modelled from load, and say so. */}
+      <Section title="Effort">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+          <Stat label="Training effect"
+                value={activity.training_effect_aerobic ?? <Missing reason={whyMissing(activity, 'training_effect')} />}
+                sub={TE_LABEL(activity.training_effect_aerobic) || undefined}
+                tone="accent" />
+          <Stat label="Anaerobic"
+                value={activity.training_effect_anaerobic ?? <Missing />}
+                sub={TE_LABEL(activity.training_effect_anaerobic) || undefined} />
+          <Stat label="Recovery"
+                value={activity.recovery_hours ?? <Missing reason={whyMissing(activity, 'recovery')} />}
+                unit={activity.recovery_hours ? 'h' : ''} sub="until absorbed" />
+          <Stat label="Experience" value={activity.xp ?? 0} unit="xp" />
+        </div>
+        <p className="mt-4 pt-3 border-t border-line text-xs text-muted">
+          Training effect and recovery are estimated from training load relative to your
+          current fitness, not measured directly.
+        </p>
+      </Section>
+
+      <Section title="Details">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+          {showPace && (
+            <Stat label="Fastest" value={activity.max_speed_mps ? pace(1000 / activity.max_speed_mps) : <Missing />}
+                  unit={activity.max_speed_mps ? '/km' : ''} sub="best 30 seconds" />
+          )}
+          <Stat label="Calories" value={activity.calories_kcal ? Math.round(activity.calories_kcal) : <Missing reason="Not written by the device for this session" />}
+                unit={activity.calories_kcal ? 'kcal' : ''} />
+          <Stat label="Steps" value={activity.steps ? activity.steps.toLocaleString() : <Missing reason="Not written by the device for this session" />} />
+          {showPace && (
+            <Stat label="Cadence" value={activity.avg_cadence ? Math.round(activity.avg_cadence) : <Missing reason={whyMissing(activity, 'cadence_series')} />}
+                  unit={activity.avg_cadence ? 'spm' : ''}
+                  sub={activity.avg_stride_length_m ? `${activity.avg_stride_length_m.toFixed(2)} m stride` : undefined} />
+          )}
+          <Stat label="VO₂ max" value={activity.vo2_max ? Math.round(activity.vo2_max) : <Missing reason="No VO2 max reading near this session" />} />
+          <Stat label="HR range"
+                value={activity.min_hr && activity.max_hr ? `${activity.min_hr}–${activity.max_hr}` : <Missing />}
+                unit={activity.min_hr ? 'bpm' : ''} />
+        </div>
+      </Section>
 
       {route.length > 1 && (
         <Section title="Route">

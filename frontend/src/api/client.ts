@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort } from '../types';
+import { Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData } from '../types';
 
 /**
  * Served by nginx the API is same-origin, so a relative base is right. Loaded
@@ -43,6 +43,11 @@ export const getDashboardSummary = async (): Promise<DashboardSummary> => {
 
 export const getPMCData = async (days = 90): Promise<PMCPoint[]> => {
   const res = await api.get<PMCPoint[]>(`/metrics/pmc?days=${days}`);
+  return res.data;
+};
+
+export const getHome = async (): Promise<HomeData> => {
+  const res = await api.get<HomeData>('/metrics/home');
   return res.data;
 };
 

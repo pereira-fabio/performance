@@ -1,23 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Shell } from './components/Shell';
 import { SportView } from './components/SportView';
+import { HomeView } from './components/HomeView';
 import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { GPXUploadModal } from './components/GPXUploadModal';
-import { Activity, DashboardSummary, PMCPoint, BestEffort } from './types';
-import { SportKey, bucketOf } from './lib/format';
+import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
+import { SportKey, TabKey, bucketOf } from './lib/format';
 import {
   getActivities, getActivityDetail, getDashboardSummary,
-  getPMCData, getPersonalRecords, deleteActivity,
+  getPMCData, getPersonalRecords, deleteActivity, getHome,
 } from './api/client';
 
 export const App: React.FC = () => {
-  const [tab, setTab] = useState<SportKey>('runs');
+  const [tab, setTab] = useState<TabKey>('home');
   const [selected, setSelected] = useState<Activity | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [pmc, setPmc] = useState<PMCPoint[]>([]);
   const [records, setRecords] = useState<BestEffort[]>([]);
+  const [home, setHome] = useState<HomeData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -26,13 +28,14 @@ export const App: React.FC = () => {
   const load = async () => {
     setRefreshing(true);
     try {
-      const [acts, sum, pm, recs] = await Promise.all([
-        getActivities(), getDashboardSummary(), getPMCData(180), getPersonalRecords(),
+      const [acts, sum, pm, recs, hm] = await Promise.all([
+        getActivities(), getDashboardSummary(), getPMCData(180), getPersonalRecords(), getHome(),
       ]);
       setActivities(acts);
       setSummary(sum);
       setPmc(pm);
       setRecords(recs);
+      setHome(hm);
       setError(null);
     } catch (err: any) {
       setError(err?.message ?? 'Could not reach the server');
@@ -90,8 +93,12 @@ export const App: React.FC = () => {
             {error}
           </div>
         )}
-        <SportView tab={tab} activities={byTab[tab]} summary={summary}
-                   pmc={pmc} records={records} onSelect={openActivity} />
+        {tab === 'home' ? (
+          <HomeView data={home} onTab={setTab} />
+        ) : (
+          <SportView tab={tab} activities={byTab[tab]} summary={summary}
+                     pmc={pmc} records={records} onSelect={openActivity} />
+        )}
       </Shell>
 
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} onUpdated={load} />

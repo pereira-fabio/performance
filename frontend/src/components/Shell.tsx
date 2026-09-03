@@ -1,5 +1,5 @@
 import React from 'react';
-import { SportKey, SPORTS } from '../lib/format';
+import { SportKey, TabKey, SPORTS } from '../lib/format';
 
 export const Logo: React.FC<{ size?: number }> = ({ size = 26 }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden>
@@ -10,9 +10,16 @@ export const Logo: React.FC<{ size?: number }> = ({ size = 26 }) => (
   </svg>
 );
 
+const TABS: { key: TabKey; label: string; color: string }[] = [
+  { key: 'home', label: 'Home', color: 'var(--accent)' },
+  { key: 'runs', label: SPORTS.runs.label, color: SPORTS.runs.color },
+  { key: 'walks', label: SPORTS.walks.label, color: SPORTS.walks.color },
+  { key: 'gym', label: SPORTS.gym.label, color: SPORTS.gym.color },
+];
+
 interface ShellProps {
-  tab: SportKey;
-  onTab: (t: SportKey) => void;
+  tab: TabKey;
+  onTab: (t: TabKey) => void;
   counts: Record<SportKey, number>;
   onSettings: () => void;
   onUpload: () => void;
@@ -59,19 +66,22 @@ export const Shell: React.FC<ShellProps> = ({
 
         {/* Each sport is its own view; nothing is aggregated across them. */}
         <nav className="flex gap-1 -mb-px" role="tablist">
-          {(Object.keys(SPORTS) as SportKey[]).map((key) => {
+          {TABS.map(({ key, label, color }) => {
             const active = tab === key;
+            const count = key === 'home' ? null : counts[key as SportKey];
             return (
               <button key={key} role="tab" aria-selected={active} onClick={() => onTab(key)}
                 className={`relative px-3 py-3 text-sm font-semibold transition ${
                   active ? 'text-fg-strong' : 'text-muted hover:text-fg'}`}>
-                {SPORTS[key].label}
-                <span className={`ml-1.5 text-xs font-medium ${active ? 'text-accent' : 'text-faint'}`}>
-                  {counts[key]}
-                </span>
+                {label}
+                {count != null && (
+                  <span className={`ml-1.5 text-xs font-medium ${active ? 'text-accent' : 'text-faint'}`}>
+                    {count}
+                  </span>
+                )}
                 {active && (
                   <span className="absolute inset-x-2 -bottom-px h-[3px] rounded-t-full"
-                        style={{ background: SPORTS[key].color }} />
+                        style={{ background: color }} />
                 )}
               </button>
             );

@@ -33,6 +33,10 @@ from backend.app.physiology.trimp import (
 from backend.app.physiology.best_efforts import calculate_best_efforts
 from backend.app.physiology.pmc import calculate_pmc_series
 from backend.app.physiology.recovery import calculate_recovery_readiness
+from backend.app.physiology.effect import (
+    aerobic_training_effect, anaerobic_training_effect, recovery_hours,
+)
+from backend.app.physiology.progress import activity_xp
 from backend.app.core.config import settings
 from backend.app.core.sports import is_running
 
@@ -45,6 +49,9 @@ MIN_TRAILING_SPLIT_M = 50.0
 
 # Rolling window for recovery baselines.
 BASELINE_DAYS = 7
+
+# "Fastest pace" means the best sustained effort, not a one-sample spike.
+FASTEST_WINDOW_SEC = 30.0
 
 # How far a device's reported distance may differ from the measured GPS track
 # before the device figure is treated as broken rather than authoritative.
@@ -199,7 +206,15 @@ class ActivityProcessor:
         if tl.speed is not None:
             moving = tl.moving_mask()
             if np.any(moving):
-                max_speed = float(np.max(tl.speed[moving]))
+                # The fastest *sustained* speed, over half a minute. A single
+                # GPS spike would otherwise be reported as a sprint: a 7:19/km
+                # run should not claim a 3:24/km best.
+                window = int(min(FASTEST_WINDOW_SEC / tl.dt, np.count_nonzero(moving)))
+                if window >= 3:
+                    rolled = np.convolve(tl.speed[moving], np.ones(window) / window, mode="valid")
+                    max_speed = float(np.max(rolled)) if len(rolled) else None
+                else:
+                    max_speed = float(np.max(tl.speed[moving]))
         if total_dist is None:
             unavailable["distance"] = "no GPS route and no usable speed series"
 
@@ -322,8 +337,34 @@ class ActivityProcessor:
         if r_tss is None:
             unavailable.setdefault("r_tss", "no pace or heart rate basis for training load")
 
+        # Training effect and recovery are relative to current fitness, so the
+        # chronic load standing before this session is the right reference.
+        latest_health = (
+            self.db.query(DailyHealth)
+            .filter(DailyHealth.date <= start_time.date())
+            .order_by(DailyHealth.date.desc())
+            .first()
+        )
+        ctl = float(latest_health.ctl) if latest_health else 0.0
+        tsb = float(latest_health.tsb) if latest_health else 0.0
+        readiness = latest_health.readiness_score if latest_health else None
+
+        te_aerobic, te_reason = aerobic_training_effect(r_tss, ctl)
+        te_anaerobic, _ = anaerobic_training_effect(hr_zone_seconds, ctl)
+        recovery, rec_reason = recovery_hours(r_tss, ctl, tsb, readiness)
+        if te_reason:
+            unavailable["training_effect"] = te_reason
+        if rec_reason:
+            unavailable["recovery"] = rec_reason
+
         quality["unavailable"] = unavailable
         quality["rtss_basis"] = rtss_basis
+        quality["estimates"] = {
+            # Stated plainly: these are modelled from load, not measured.
+            "training_effect": "estimated from training load relative to fitness",
+            "recovery_hours": "estimated from training load, form and readiness",
+            "reference_ctl": round(ctl, 1),
+        }
 
         # --- persist ---------------------------------------------------
         existing = (
@@ -395,6 +436,12 @@ class ActivityProcessor:
         activity.hr_zone_seconds = hr_zone_seconds
         activity.pace_zone_seconds = pace_zone_seconds
         activity.calories_kcal = payload.calories_kcal
+        activity.steps = payload.steps
+        activity.vo2_max = payload.vo2_max
+        activity.training_effect_aerobic = te_aerobic
+        activity.training_effect_anaerobic = te_anaerobic
+        activity.recovery_hours = recovery
+        activity.xp = activity_xp(r_tss, total_dist, moving_sec)
         activity.source = "health_connect"
         activity.notes = payload.notes
         activity.hr_coverage = round(hr_channel.coverage, 4) if hr_channel else 0.0

@@ -34,7 +34,9 @@ class HealthConnectSessionPayload(BaseModel):
     calories_kcal: Optional[float] = None
     elevation_gain_m: Optional[float] = None
     elevation_loss_m: Optional[float] = None
-    
+    steps: Optional[int] = None
+    vo2_max: Optional[float] = None
+
     # Time-series streams
     route_points: Optional[List[LocationPoint]] = []
     heart_rate_series: Optional[List[HeartRateSample]] = []
@@ -96,6 +98,10 @@ class ActivitySummaryOut(BaseModel):
     aerobic_decoupling_pct: Optional[float] = None
     r_tss: Optional[float] = None
     intensity_factor: Optional[float] = None
+    training_effect_aerobic: Optional[float] = None
+    training_effect_anaerobic: Optional[float] = None
+    recovery_hours: Optional[int] = None
+    xp: Optional[int] = None
     hr_coverage: Optional[float] = None
     # Per-channel coverage plus an `unavailable` map explaining any metric the
     # data did not support. Clients should show absence, not substitute zero.
@@ -120,6 +126,8 @@ class ActivityDetailOut(ActivitySummaryOut):
     pace_zone_seconds: Optional[Dict[str, float]] = None
     calories_kcal: Optional[float] = None
     vo2_max: Optional[float] = None
+    steps: Optional[int] = None
+    max_speed_mps: Optional[float] = None
     notes: Optional[str] = None
     splits: List[SplitOut] = []
     best_efforts: List[BestEffortOut] = []

@@ -45,6 +45,11 @@ _ADDED_COLUMNS = {
     "activities": [
         ("hr_coverage", "FLOAT DEFAULT 0.0"),
         ("data_quality", "JSON"),
+        ("steps", "INTEGER"),
+        ("training_effect_aerobic", "FLOAT"),
+        ("training_effect_anaerobic", "FLOAT"),
+        ("recovery_hours", "INTEGER"),
+        ("xp", "INTEGER DEFAULT 0"),
     ],
     "activity_splits": [
         ("is_partial", "BOOLEAN DEFAULT 0"),

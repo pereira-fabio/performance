@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Dict, List, Optional
 from datetime import datetime, timedelta, date
 import numpy as np
 
 from backend.app.core.database import get_db
-from backend.app.models.models import DailyHealth, BestEffort, Activity
+from backend.app.models.models import DailyHealth, BestEffort, Activity, UserProfile
 from backend.app.core.sports import RUNNING_SPORTS, is_running
+from backend.app.physiology.progress import (
+    level_for_xp, evaluate_achievements, attribute_scores, _streak_weeks,
+)
 from backend.app.models.schemas import PMCPointOut, BestEffortOut
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Physiology Trends"])
@@ -141,3 +144,110 @@ def _by_sport(acts_7d, acts_28d):
             "load_28d": round(sum(a.r_tss or 0 for a in m), 1),
         }
     return out
+
+
+@router.get("/home")
+def get_home(db: Session = Depends(get_db)):
+    """
+    The overview: progression, balance across sports, and standing milestones.
+
+    Everything here is derived from figures already computed per activity. The
+    levels and attribute axes are a presentation layer over that, not new
+    measurements.
+    """
+    activities = db.query(Activity).order_by(Activity.start_time.asc()).all()
+    if not activities:
+        return {"empty": True}
+
+    runs = [a for a in activities if is_running(a.sport_type)]
+    total_xp = sum(a.xp or 0 for a in activities)
+    progression = level_for_xp(total_xp)
+
+    # Share of effort by sport, for the donut. Time is the fairest common unit:
+    # kilometres would erase gym work entirely.
+    split: Dict[str, Dict[str, float]] = {}
+    for a in activities:
+        e = split.setdefault(a.sport_type, {"count": 0, "seconds": 0.0, "km": 0.0, "xp": 0})
+        e["count"] += 1
+        e["seconds"] += a.moving_time_sec or 0.0
+        e["km"] += (a.distance_meters or 0.0) / 1000.0
+        e["xp"] += a.xp or 0
+    for e in split.values():
+        e["km"] = round(e["km"], 1)
+        e["hours"] = round(e["seconds"] / 3600.0, 1)
+
+    latest = db.query(DailyHealth).order_by(DailyHealth.date.desc()).first()
+    ctl = float(latest.ctl) if latest else 0.0
+    tsb = float(latest.tsb) if latest else 0.0
+
+    today = datetime.utcnow().date()
+    d7 = today - timedelta(days=7)
+    weekly_km = sum(
+        (a.distance_meters or 0) / 1000.0 for a in runs if a.start_time.date() >= d7
+    )
+
+    # Sessions per week over the last eight, so a single big week does not
+    # masquerade as consistency.
+    d56 = today - timedelta(days=56)
+    recent = [a for a in activities if a.start_time.date() >= d56]
+    sessions_per_week = round(len(recent) / 8.0, 2)
+
+    best_effort_rows = (
+        db.query(BestEffort)
+        .join(Activity, Activity.id == BestEffort.activity_id)
+        .filter(Activity.sport_type.in_(RUNNING_SPORTS))
+        .all()
+    )
+    best_by_label: Dict[str, float] = {}
+    for be in best_effort_rows:
+        if be.label not in best_by_label or be.time_seconds < best_by_label[be.label]:
+            best_by_label[be.label] = be.time_seconds
+
+    best_pace = min((be.pace_sec_km for be in best_effort_rows), default=None)
+    decoupling = [a.aerobic_decoupling_pct for a in runs if a.aerobic_decoupling_pct is not None]
+    avg_decoupling = float(np.mean(decoupling[-10:])) if decoupling else None
+
+    profile = db.query(UserProfile).first()
+    threshold = float(profile.threshold_pace_sec) if profile else 300.0
+
+    attributes = attribute_scores(
+        ctl=ctl, weekly_km=weekly_km, sessions_per_week=sessions_per_week,
+        best_pace_sec=best_pace, threshold_pace_sec=threshold,
+        avg_decoupling=avg_decoupling,
+        readiness=latest.readiness_score if latest else None,
+    )
+
+    total_km = sum((a.distance_meters or 0) / 1000.0 for a in runs)
+    achievements = evaluate_achievements(
+        activities=[{"date": a.start_time.date(), "km": (a.distance_meters or 0) / 1000.0} for a in runs],
+        best_efforts=best_by_label,
+        total_km=total_km,
+        longest_km=max(((a.distance_meters or 0) / 1000.0 for a in runs), default=0.0),
+    )
+
+    vo2 = next((a.vo2_max for a in reversed(activities) if a.vo2_max), None)
+    if vo2 is None:
+        vo2_row = (
+            db.query(DailyHealth).filter(DailyHealth.vo2_max.isnot(None))
+            .order_by(DailyHealth.date.desc()).first()
+        )
+        vo2 = vo2_row.vo2_max if vo2_row else None
+
+    return {
+        "empty": False,
+        "progression": progression,
+        "attributes": attributes,
+        "split": split,
+        "streak_weeks": _streak_weeks([a.start_time.date() for a in activities]),
+        "totals": {
+            "activities": len(activities),
+            "runs": len(runs),
+            "km": round(total_km, 1),
+            "hours": round(sum(a.moving_time_sec or 0 for a in activities) / 3600.0, 1),
+        },
+        "form": {"ctl": round(ctl, 1), "tsb": round(tsb, 1),
+                 "readiness": latest.readiness_score if latest else None},
+        "vo2_max": vo2,
+        "resting_hr": latest.resting_hr if latest else None,
+        "achievements": [a.__dict__ for a in achievements],
+    }

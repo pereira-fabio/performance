@@ -28,6 +28,7 @@ export const timeLabel = (iso: string): string =>
   new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
 export type SportKey = 'runs' | 'walks' | 'gym';
+export type TabKey = 'home' | SportKey;
 
 export const SPORTS: Record<SportKey, {
   label: string;

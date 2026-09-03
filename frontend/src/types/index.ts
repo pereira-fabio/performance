@@ -59,6 +59,13 @@ export interface Activity {
   trimp_edwards?: number;
   r_tss?: number;
   intensity_factor?: number;
+  training_effect_aerobic?: number;
+  training_effect_anaerobic?: number;
+  recovery_hours?: number;
+  xp?: number;
+  steps?: number;
+  vo2_max?: number;
+  max_speed_mps?: number;
   hr_zone_seconds?: Record<string, number>;
   pace_zone_seconds?: Record<string, number>;
   calories_kcal?: number;
@@ -112,6 +119,30 @@ export interface DashboardSummary {
     count_7d: number; km_7d: number; time_7d_sec: number; load_7d: number;
     count_28d: number; km_28d: number; time_28d_sec: number; load_28d: number;
   }>;
+}
+
+export interface Achievement {
+  key: string;
+  name: string;
+  detail: string;
+  earned: boolean;
+  progress: number;
+  value?: string;
+}
+
+export interface HomeData {
+  empty: boolean;
+  progression: {
+    level: number; xp: number; xp_into_level: number; xp_for_next: number; progress_pct: number;
+  };
+  attributes: Record<string, number>;
+  split: Record<string, { count: number; hours: number; km: number; xp: number }>;
+  streak_weeks: number;
+  totals: { activities: number; runs: number; km: number; hours: number };
+  form: { ctl: number; tsb: number; readiness?: number | null };
+  vo2_max?: number | null;
+  resting_hr?: number | null;
+  achievements: Achievement[];
 }
 
 export interface UserProfile {

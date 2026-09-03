@@ -26,6 +26,8 @@ data class WorkoutSessionData(
     val durationSec: Double?,
     val caloriesKcal: Double?,
     val elevationGainM: Double?,
+    val steps: Int?,
+    val vo2Max: Double?,
     val routePoints: List<Map<String, Any?>>,
     val heartRateSeries: List<Map<String, Any>>,
     val speedSeries: List<Map<String, Any>>,
@@ -439,6 +441,26 @@ class HealthConnectManager(private val context: Context) {
                     TotalCaloriesBurnedRecord.ENERGY_TOTAL, sessionStart, sessionEnd, origins
                 )?.inKilocalories
 
+                // Steps during the session, and the VO2 max reading closest to
+                // it. Both are written by the device rather than derived, so
+                // they are read here rather than estimated on the server.
+                val steps = aggregateOrNull(
+                    StepsRecord.COUNT_TOTAL, sessionStart, sessionEnd, origins
+                )?.toInt()
+
+                val vo2 = try {
+                    readAll(
+                        Vo2MaxRecord::class,
+                        TimeRangeFilter.between(
+                            sessionStart.minus(30, ChronoUnit.DAYS),
+                            sessionEnd.plus(1, ChronoUnit.DAYS)
+                        )
+                    ).maxByOrNull { it.time }?.vo2MillilitersPerMinuteKilogram
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not read VO2 max: ${e.message}")
+                    null
+                }
+
                 val durationSec = ChronoUnit.SECONDS.between(sessionStart, sessionEnd)
                 val hasAnyData =
                     routePoints.isNotEmpty() || hrSeries.isNotEmpty() || speedSeries.isNotEmpty()
@@ -470,6 +492,8 @@ class HealthConnectManager(private val context: Context) {
                         durationSec = durationSec.toDouble(),
                         caloriesKcal = calories,
                         elevationGainM = elevation,
+                        steps = steps,
+                        vo2Max = vo2,
                         routePoints = routePoints,
                         heartRateSeries = hrSeries,
                         speedSeries = speedSeries,
