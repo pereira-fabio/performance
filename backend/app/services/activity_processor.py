@@ -388,9 +388,27 @@ class ActivityProcessor:
                 if had_hr > 0.5 and new_hr < had_hr / 2:
                     lost.append(f"heart rate ({had_hr:.0%} -> {new_hr:.0%})")
                 print(
-                    f"↩️  Keeping existing activity {existing.id}: incoming sync is "
-                    f"missing {', '.join(lost)}"
+                    f"↩️  Keeping existing route/heart-rate for {existing.id}: "
+                    f"incoming sync is missing {', '.join(lost)}"
                 )
+                # Refusing the downgrade must not throw away the rest of the
+                # sync. Values that do not depend on the missing channel are
+                # still the freshest available, so they are applied; the stream
+                # and everything derived from it are left untouched.
+                if payload.calories_kcal is not None:
+                    existing.calories_kcal = payload.calories_kcal
+                if payload.steps is not None:
+                    existing.steps = payload.steps
+                if payload.vo2_max is not None:
+                    existing.vo2_max = payload.vo2_max
+                existing.training_effect_aerobic = te_aerobic
+                existing.training_effect_anaerobic = te_anaerobic
+                existing.recovery_hours = recovery
+                existing.xp = activity_xp(
+                    existing.r_tss, existing.distance_meters, existing.moving_time_sec
+                )
+                self.db.commit()
+                self.db.refresh(existing)
                 return existing
 
         activity = existing or Activity(external_id=payload.session_id)

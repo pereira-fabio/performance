@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""
+Fill in training effect, recovery and XP for activities already stored.
+
+These are computed from training load, which is already in the database, so
+they never needed a re-sync -- they were simply only written at ingest. This
+recomputes them in place for every activity, using the chronic load standing
+before each one, exactly as the ingestion path does.
+
+Safe to run repeatedly.
+
+    docker exec -it performance-backend python /data/backfill_effort.py
+"""
+import os
+import sys
+
+sys.path.append("/app")
+
+from backend.app.core.database import SessionLocal          # noqa: E402
+from backend.app.models.models import Activity, DailyHealth  # noqa: E402
+from backend.app.physiology.effect import (                  # noqa: E402
+    aerobic_training_effect, anaerobic_training_effect, recovery_hours,
+)
+from backend.app.physiology.progress import activity_xp      # noqa: E402
+
+
+def main() -> int:
+    db = SessionLocal()
+    try:
+        activities = db.query(Activity).order_by(Activity.start_time.asc()).all()
+        if not activities:
+            print("No activities.")
+            return 0
+
+        # Daily health is read once and indexed, rather than queried per
+        # activity: a year of sessions would otherwise be a year of queries.
+        health = {h.date: h for h in db.query(DailyHealth).all()}
+        dates = sorted(health)
+
+        def fitness_before(day):
+            """CTL, TSB and readiness standing on or before a date."""
+            prior = [d for d in dates if d <= day]
+            if not prior:
+                return 0.0, 0.0, None
+            h = health[prior[-1]]
+            return float(h.ctl or 0.0), float(h.tsb or 0.0), h.readiness_score
+
+        changed = 0
+        for a in activities:
+            ctl, tsb, readiness = fitness_before(a.start_time.date())
+            te_a, _ = aerobic_training_effect(a.r_tss, ctl)
+            te_an, _ = anaerobic_training_effect(a.hr_zone_seconds, ctl)
+            rec, _ = recovery_hours(a.r_tss, ctl, tsb, readiness)
+            xp = activity_xp(a.r_tss, a.distance_meters, a.moving_time_sec)
+
+            if (a.training_effect_aerobic, a.training_effect_anaerobic,
+                    a.recovery_hours, a.xp) != (te_a, te_an, rec, xp):
+                a.training_effect_aerobic = te_a
+                a.training_effect_anaerobic = te_an
+                a.recovery_hours = rec
+                a.xp = xp
+                changed += 1
+
+        db.commit()
+        total_xp = sum(a.xp or 0 for a in activities)
+        with_te = sum(1 for a in activities if a.training_effect_aerobic is not None)
+        print(f"Updated {changed} of {len(activities)} activities.")
+        print(f"Training effect now present on {with_te}/{len(activities)}.")
+        print(f"Total experience: {total_xp:,} XP")
+        return 0
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
