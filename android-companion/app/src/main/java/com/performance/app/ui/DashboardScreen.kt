@@ -1,7 +1,9 @@
 package com.performance.app.ui
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.view.ViewGroup
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -41,6 +43,7 @@ fun DashboardScreen(serverUrl: String, fragment: String? = null) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var loading by remember { mutableStateOf(true) }
     var failure by remember { mutableStateOf<String?>(null) }
+    var saved by remember { mutableStateOf<String?>(null) }
 
     BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
 
@@ -86,8 +89,38 @@ fun DashboardScreen(serverUrl: String, fragment: String? = null) {
                     settings.loadWithOverviewMode = true
                     settings.useWideViewPort = true
 
+                    // The dashboard builds its PDF and JSON downloads as
+                    // blobs, which a WebView otherwise silently discards.
+                    enableDownloads(ctx) { message -> saved = message }
+
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, u: String?) { loading = false }
+
+                        /**
+                         * Keep this WebView on the bundled dashboard.
+                         *
+                         * It carries a JavaScript bridge that writes files, so
+                         * only our own page may ever run in it. A link to
+                         * anywhere else opens in the real browser, which is
+                         * also where the reader would rather it opened.
+                         */
+                        override fun shouldOverrideUrlLoading(
+                            view: WebView?, request: WebResourceRequest?
+                        ): Boolean {
+                            val target = request?.url ?: return false
+                            if (target.toString().startsWith("file:///android_asset/")) {
+                                return false
+                            }
+                            try {
+                                ctx.startActivity(
+                                    Intent(Intent.ACTION_VIEW, target)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            } catch (e: ActivityNotFoundException) {
+                                // No browser installed; refusing is still right.
+                            }
+                            return true
+                        }
                         override fun onReceivedError(
                             view: WebView?, request: WebResourceRequest?, error: WebResourceError?
                         ) {
@@ -104,6 +137,18 @@ fun DashboardScreen(serverUrl: String, fragment: String? = null) {
         )
 
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+
+        // A download is invisible otherwise: the file lands in Downloads with
+        // nothing on screen to say it worked.
+        saved?.let { message ->
+            LaunchedEffect(message) {
+                kotlinx.coroutines.delay(4000)
+                saved = null
+            }
+            Snackbar(
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+            ) { Text(message, fontSize = 13.sp) }
+        }
 
         failure?.let { message ->
             Surface(

@@ -68,6 +68,21 @@
             </intent-filter>
         </activity-alias>
 
+        <!--
+          Lets a saved report be handed to a PDF viewer on Android 9 and
+          earlier, where the shared Downloads folder is not writable without a
+          storage permission. Only the app's own download directory is exposed.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Shell } from './components/Shell';
 import { SportView } from './components/SportView';
 import { HomeView } from './components/HomeView';
+import { PeriodRecap } from './components/PeriodRecap';
 import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
   const [athlete, setAthlete] = useState<string | undefined>();
   const [session, setSession] = useState(() => loadSession());
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [recap, setRecap] = useState<'week' | 'month' | 'year' | null>(null);
 
   const load = async () => {
     setRefreshing(true);
@@ -127,6 +129,20 @@ export const App: React.FC = () => {
     );
   }
 
+  if (recap) {
+    return (
+      <Shell tab={tab} onTab={(t) => { setRecap(null); setTab(t); }} counts={counts}
+             onMenu={() => setMenuOpen(true)}
+             onRefresh={load} refreshing={refreshing}>
+        <PeriodRecap kind={recap} onBack={() => setRecap(null)}
+                     onSelectActivity={(id) => {
+                       const found = activities.find((a) => a.id === id);
+                       if (found) { setRecap(null); openActivity(found); }
+                     }} />
+      </Shell>
+    );
+  }
+
   return (
     <>
       <Shell tab={tab} onTab={setTab} counts={counts}
@@ -138,7 +154,7 @@ export const App: React.FC = () => {
           </div>
         )}
         {tab === 'home' ? (
-          <HomeView data={home} onTab={setTab} />
+          <HomeView data={home} onTab={setTab} onOpenRecap={() => setRecap('week')} />
         ) : (
           <SportView tab={tab} activities={byTab[tab]} summary={summary}
                      pmc={pmc} records={records} onSelect={openActivity} />

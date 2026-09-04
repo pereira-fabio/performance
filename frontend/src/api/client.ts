@@ -1,7 +1,7 @@
 import axios from 'axios';
 import {
   Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData,
-  AdminAccount, AdminOverview, BackupFile,
+  AdminAccount, AdminOverview, BackupFile, PeriodReport, ReportPeriodOption,
 } from '../types';
 import { loadSession, saveSession } from '../lib/auth';
 
@@ -183,6 +183,13 @@ export const getActivityNote = async (id: string, refresh = false): Promise<Coac
 export const getWeeklyNote = async (refresh = false): Promise<CoachNote> =>
   (await api.get<CoachNote>('/coach/week', { params: { refresh }, timeout: 180000 })).data;
 
+export const getPeriodNote = async (
+  kind: string, key?: string, offset = 0, refresh = false
+): Promise<CoachNote> =>
+  (await api.get<CoachNote>('/coach/period', {
+    params: { kind, key, offset, refresh }, timeout: 180000,
+  })).data;
+
 export const getCoachStatus = async (): Promise<{
   enabled: boolean; reachable?: boolean; url?: string; model?: string;
   available_models?: string[]; reason?: string;
@@ -251,4 +258,48 @@ export const uploadGPX = async (file: File): Promise<Activity> => {
     },
   });
   return res.data;
+};
+
+// ------------------------------------------------------------- reports ---
+
+export const getWeekReport = async (offset = 0, key?: string): Promise<PeriodReport> =>
+  (await api.get<PeriodReport>('/reports/week', { params: { offset, key } })).data;
+
+export const getPeriodReport = async (
+  kind: 'week' | 'month' | 'year', key?: string, offset = 0
+): Promise<PeriodReport> =>
+  (await api.get<PeriodReport>('/reports/period', { params: { kind, key, offset } })).data;
+
+export const getReportPeriods = async (
+  kind: 'month' | 'year'
+): Promise<ReportPeriodOption[]> =>
+  (await api.get<ReportPeriodOption[]>('/reports/periods', { params: { kind } })).data;
+
+/**
+ * Fetch a report as a PDF and hand it to the browser.
+ *
+ * Downloaded through the API client rather than by pointing the browser at the
+ * URL, because the session lives in a header: a plain link would arrive
+ * unauthenticated. Generating one can take a while when the coach's note is
+ * being written, hence the long timeout.
+ */
+export const downloadReportPdf = async (
+  kind: 'week' | 'month' | 'year', key: string, includeNote = true
+): Promise<void> => {
+  const res = await api.get('/reports/pdf', {
+    params: { kind, key, include_note: includeNote },
+    responseType: 'blob',
+    timeout: 240000,
+  });
+  const blob = new Blob([res.data], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `performance-${key}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoked on a delay: the Android WebView reads the blob asynchronously
+  // through its download bridge, and revoking immediately races it.
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 };

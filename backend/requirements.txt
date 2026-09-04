@@ -17,3 +17,6 @@ pytz==2024.1
 aiofiles==24.1.0
 # Automatic Garmin Connect sync for athletes without Health Connect.
 garminconnect==0.3.11
+# Printable month and year reports. Pure Python, no system libraries,
+# so the image still builds anywhere.
+reportlab==4.2.2

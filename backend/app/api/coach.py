@@ -51,14 +51,15 @@ def coach_status(_: User = Depends(current_user)):
 
 
 def _cached_or_generate(
-    db: Session, user: User, kind: str, subject_id: Optional[str], brief: str, refresh: bool
+    db: Session, user: User, kind: str, subject_id: Optional[str], brief: str, refresh: bool,
+    system: str = coach.SYSTEM_PROMPT, max_tokens: int = 200,
 ) -> Note:
     url = _configured()
     if not url:
         return Note(available=False, reason="No language model is configured on this server.")
 
     model = settings.OLLAMA_MODEL
-    fingerprint = coach.brief_fingerprint(brief, model)
+    fingerprint = coach.brief_fingerprint(brief, model, system)
 
     existing = (
         db.query(Insight)
@@ -70,7 +71,7 @@ def _cached_or_generate(
         return Note(available=True, text=existing.text, model=existing.model,
                     created_at=existing.created_at, generated=False)
 
-    result = coach.generate(url, model, brief)
+    result = coach.generate(url, model, brief, system=system, max_tokens=max_tokens)
     if not result.ok:
         # Fall back to whatever was written last rather than showing nothing.
         if existing:
@@ -131,6 +132,35 @@ def activity_note(
     }
     brief = coach.build_activity_brief(activity, context)
     return _cached_or_generate(db, user, "activity", activity.id, brief, refresh)
+
+
+@router.get("/period", response_model=Note)
+def period_note(
+    kind: str = "week",
+    key: Optional[str] = None,
+    offset: int = 0,
+    refresh: bool = False,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    """
+    A review of a finished period, to sit alongside its recap.
+
+    Cached against the period key rather than regenerated per view: a finished
+    week does not change, so neither should what was written about it.
+    """
+    from backend.app.api.reports import _period
+    from backend.app.services import reports as reports_service
+
+    period = _period(kind, key, offset)
+    report = reports_service.build_report(db, user.id, period)
+    if report.get("empty"):
+        return Note(available=False, reason="Nothing was recorded in this period.")
+
+    brief = coach.build_period_brief(report)
+    # A review earns a longer leash than a per-run note: it has a comparison to
+    # make, and cutting it off mid-sentence is worse than the extra seconds.
+    return _cached_or_generate(db, user, f"report-{kind}", period.key, brief, refresh,
+                               system=coach.REVIEW_SYSTEM_PROMPT, max_tokens=400)
 
 
 @router.get("/week", response_model=Note)

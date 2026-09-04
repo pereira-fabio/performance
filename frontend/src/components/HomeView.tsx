@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Card, Stat, StatGrid, Section, Empty } from './Stat';
 import { CoachNoteCard } from './CoachNote';
+import { LastWeekCard } from './LastWeekCard';
 import { duration, SPORTS, SportKey } from '../lib/format';
 
 const ATTRIBUTE_LABELS: Record<string, string> = {
@@ -23,9 +24,11 @@ const sportColor = (sport: string): string => {
   return 'var(--gym)';
 };
 
-export const HomeView: React.FC<{ data: HomeData | null; onTab: (t: SportKey) => void }> = ({
-  data, onTab,
-}) => {
+export const HomeView: React.FC<{
+  data: HomeData | null;
+  onTab: (t: SportKey) => void;
+  onOpenRecap?: () => void;
+}> = ({ data, onTab, onOpenRecap }) => {
   if (!data || data.empty) {
     return <Empty>Nothing recorded yet. Sync from your phone to get started.</Empty>;
   }
@@ -81,7 +84,9 @@ export const HomeView: React.FC<{ data: HomeData | null; onTab: (t: SportKey) =>
         </StatGrid>
       </Card>
 
-      <CoachNoteCard title="This week" />
+      {onOpenRecap && <LastWeekCard onOpen={onOpenRecap} />}
+
+      <CoachNoteCard title="This week so far" />
 
       <div className="grid md:grid-cols-2 gap-4 mt-6">
         <div>

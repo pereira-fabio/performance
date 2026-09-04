@@ -61,6 +61,9 @@ dependencies {
     // Background Sync WorkManager
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // FileProvider, for handing a saved report to a PDF viewer.
+    implementation("androidx.core:core-ktx:1.13.1")
+
     // Networking (OkHttp & Gson)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")

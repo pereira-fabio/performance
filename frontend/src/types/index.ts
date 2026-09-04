@@ -179,3 +179,101 @@ export interface UserProfile {
   hr_zones?: Record<string, [number, number]>;
   pace_zones?: Record<string, [number, number]>;
 }
+
+/** A change in a figure against the same figure in the previous period. */
+export interface Delta {
+  change: number | null;
+  pct: number | null;
+}
+
+export interface PeriodTotals {
+  sessions: number;
+  runs: number;
+  km: number | null;
+  moving_sec: number;
+  elapsed_sec: number;
+  load: number | null;
+  elevation_gain_m: number | null;
+  calories: number | null;
+  xp: number;
+  steps?: number | null;
+  avg_pace_sec_km: number | null;
+  avg_gap_sec_km: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  avg_cadence: number | null;
+  avg_stride_m: number | null;
+  avg_decoupling_pct: number | null;
+  avg_training_effect: number | null;
+  longest_km: number | null;
+  fastest_pace_sec_km: number | null;
+  fastest_name: string | null;
+  days_trained: number;
+  hr_zone_seconds: Record<string, number> | null;
+}
+
+export interface PeriodBucket {
+  date: string;
+  label: string;
+  km: number | null;
+  load: number | null;
+  moving_sec: number;
+  sessions: number;
+}
+
+export interface ReportSession {
+  id: string;
+  name: string;
+  sport_type: string;
+  start_time: string;
+  km: number | null;
+  moving_sec: number;
+  pace_sec_km: number | null;
+  gap_sec_km: number | null;
+  avg_hr: number | null;
+  load: number | null;
+  elevation_gain_m: number | null;
+  training_effect: number | null;
+  decoupling_pct: number | null;
+  is_run: boolean;
+}
+
+export interface PeriodReport {
+  kind: 'week' | 'month' | 'year';
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+  complete: boolean;
+  day_count: number;
+  empty: boolean;
+  totals: PeriodTotals;
+  previous: { key: string; label: string; totals: PeriodTotals };
+  deltas: Record<string, Delta | null>;
+  breakdown: { unit: 'day' | 'month'; rows: PeriodBucket[] };
+  sessions: ReportSession[];
+  other_sports: Record<string, { count: number; km: number; moving_sec: number; load: number }>;
+  records: {
+    label: string;
+    time_seconds: number;
+    pace_sec_km: number;
+    achieved_at: string;
+    is_personal_record: boolean;
+  }[];
+  form: {
+    ctl_start: number | null;
+    ctl_end: number | null;
+    atl_end: number | null;
+    tsb_end: number | null;
+    acwr_end: number | null;
+  };
+  offset?: number;
+  previous_key?: string | null;
+  next_key?: string | null;
+}
+
+export interface ReportPeriodOption {
+  key: string;
+  label: string;
+  complete: boolean;
+}

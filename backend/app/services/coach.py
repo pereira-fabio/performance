@@ -180,9 +180,157 @@ def build_weekly_brief(summary: Dict[str, Any], activities: List[Any]) -> str:
     return "\n".join(lines)
 
 
-def brief_fingerprint(brief: str, model: str) -> str:
-    """Identifies a brief, so a note is regenerated only when the facts change."""
-    return hashlib.sha256(f"{model}\n{brief}".encode("utf-8")).hexdigest()[:32]
+REVIEW_SYSTEM_PROMPT = """You are a running coach writing a review of a training period that has finished.
+
+Rules, most important first:
+1. Never state a number that does not appear in the brief. Do not convert, round or recalculate anything. If the brief does not give a figure, do not estimate one.
+2. Say what changed against the period before, and what it means. That comparison is the reason the athlete is reading this.
+3. Never give medical advice, and never suggest the athlete may be ill or injured.
+4. Do not prescribe specific training. You may say a period was heavy, light, consistent or patchy; you may not write next week's plan.
+5. Four to six sentences of plain prose. Address the athlete as you. No headings, no lists, no markdown, no preamble, no sign-off."""
+
+
+def _delta_phrase(label: str, delta: Optional[Dict[str, Any]], unit: str = "") -> Optional[str]:
+    """
+    A change, written as a direction rather than a signed number.
+
+    Models reliably mishandle a leading minus -- "-8.2 km" came back as an
+    eight-kilometre week more than once in testing -- so the direction is
+    stated in words and only the size is given as a figure.
+    """
+    if not delta or delta.get("change") is None:
+        return None
+    change = delta["change"]
+    if abs(change) < 0.05:
+        return f"- {label}: unchanged"
+    direction = "up" if change > 0 else "down"
+    text = f"- {label}: {direction} by {abs(change):g}{unit}"
+    pct = delta.get("pct")
+    if pct is not None and abs(pct) >= 1:
+        # Phrased without an article: "a 11 percent" and "a 18 percent" are
+        # wrong, and the brief is meant to be readable straight off the page.
+        text += f", which is {abs(pct):.0f} percent {'more' if change > 0 else 'less'}"
+    return text
+
+
+# Sports read as nouns, not as the labels they are stored under. A model given
+# "1 walking" writes "one walking", and the whole point of this brief is that
+# every value arrives pre-phrased.
+_SPORT_NOUNS = {
+    "walking": ("walk", "walks"),
+    "hiking": ("hike", "hikes"),
+    "cycling": ("ride", "rides"),
+    "swimming": ("swim", "swims"),
+    "rowing": ("row", "rows"),
+    "gym": ("gym session", "gym sessions"),
+    "strength": ("strength session", "strength sessions"),
+    "treadmill": ("treadmill run", "treadmill runs"),
+    "other": ("other session", "other sessions"),
+}
+
+
+def _count_of(sport: str, count: int) -> str:
+    singular, plural = _SPORT_NOUNS.get(
+        (sport or "").lower(), (f"{sport} session", f"{sport} sessions"))
+    return f"{count} {singular if count == 1 else plural}"
+
+
+def build_period_brief(report: Dict[str, Any]) -> str:
+    """Describe a finished week, month or year against the one before it."""
+    totals = report.get("totals") or {}
+    deltas = report.get("deltas") or {}
+    previous = (report.get("previous") or {}).get("totals") or {}
+    noun = {"week": "week", "month": "month", "year": "year"}.get(report.get("kind"), "period")
+
+    lines = [f"A review of the athlete's training {noun}, {report.get('label')}.", ""]
+
+    measured = [
+        _line("Sessions", totals.get("sessions")),
+        _line("Runs", totals.get("runs")),
+        _line("Running distance", f"{totals['km']:g} km" if totals.get("km") else None),
+        _line("Running time", _duration(totals.get("moving_sec"))),
+        _line("Days trained", f"{totals['days_trained']} out of {report.get('day_count', 7)}"
+              if totals.get("days_trained") is not None and report.get("day_count") else None),
+        _line("Average pace", _pace(totals.get("avg_pace_sec_km"))),
+        _line("Average heart rate", f"{totals['avg_hr']:.0f} bpm" if totals.get("avg_hr") else None),
+        _line("Elevation climbed", f"{totals['elevation_gain_m']:.0f} m"
+              if totals.get("elevation_gain_m") else None),
+        _line("Longest run", f"{totals['longest_km']:g} km" if totals.get("longest_km") else None),
+        _line("Quickest run", _pace(totals.get("fastest_pace_sec_km"))),
+        _line("Training load", round(totals["load"]) if totals.get("load") else None),
+    ]
+    lines += [m for m in measured if m]
+
+    changes = [
+        _delta_phrase("Distance", deltas.get("km"), " km"),
+        _delta_phrase("Training load", deltas.get("load")),
+        _delta_phrase("Number of runs", deltas.get("runs")),
+        _delta_phrase("Days trained", deltas.get("days_trained")),
+        _delta_phrase("Elevation climbed", deltas.get("elevation_gain_m"), " m"),
+    ]
+    # Pace improving means the number falling, which every model tested read
+    # backwards. It is given as a plain statement of which was quicker instead.
+    now_pace, was_pace = totals.get("avg_pace_sec_km"), previous.get("avg_pace_sec_km")
+    if now_pace and was_pace:
+        if abs(now_pace - was_pace) < 2:
+            changes.append("- Average pace: the same as the period before")
+        else:
+            quicker = "quicker" if now_pace < was_pace else "slower"
+            changes.append(
+                f"- Average pace: {quicker} than the period before, "
+                f"which was {_pace(was_pace)}"
+            )
+    kept = [c for c in changes if c]
+    if kept:
+        lines += ["", f"Against the previous {noun} ({(report.get('previous') or {}).get('label')}):"] + kept
+
+    other = report.get("other_sports") or {}
+    if other:
+        parts = [_count_of(sport, v["count"])
+                 for sport, v in sorted(other.items(), key=lambda kv: -kv[1]["count"])]
+        lines += ["", f"They also did {', '.join(parts)}. This is not running and is not in the figures above."]
+
+    records = [r for r in (report.get("records") or []) if r.get("is_personal_record")]
+    if records:
+        # A race time needs its seconds: _duration would render 25:30 as "25m".
+        best = ", ".join(f"{r['label']} in {format_seconds(r['time_seconds'])}" for r in records)
+        lines += ["", f"They set a personal record this {noun}: {best}."]
+
+    form = report.get("form") or {}
+    standing = [
+        _line("Fitness at the end, meaning their 42-day average training load", 
+              round(form["ctl_end"]) if form.get("ctl_end") is not None else None),
+        _line("Form at the end, meaning fitness minus fatigue",
+              round(form["tsb_end"]) if form.get("tsb_end") is not None else None),
+        _line("Average aerobic decoupling, where under 5 percent is a well-paced aerobic effort",
+              f"{totals['avg_decoupling_pct']:.1f} percent" if totals.get("avg_decoupling_pct") else None),
+    ]
+    kept = [s for s in standing if s]
+    if kept:
+        lines += ["", "Where they stand:"] + kept
+    return "\n".join(lines)
+
+
+def format_seconds(seconds: Optional[float]) -> Optional[str]:
+    """A short duration read as minutes and seconds, for race times."""
+    if not seconds or seconds <= 0:
+        return None
+    minutes, secs = divmod(int(round(seconds)), 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours} hours {minutes} minutes"
+    return f"{minutes} minutes {secs} seconds"
+
+
+def brief_fingerprint(brief: str, model: str, system: str = SYSTEM_PROMPT) -> str:
+    """
+    Identifies a brief, so a note is regenerated only when the facts change.
+
+    The instructions are part of the identity, not just the facts: changing how
+    the coach is told to write should produce a new note, and without this a
+    reworded prompt would silently keep serving text written under the old one.
+    """
+    return hashlib.sha256(f"{model}\n{system}\n{brief}".encode("utf-8")).hexdigest()[:32]
 
 
 def list_models(base_url: str, timeout: int = 8) -> List[str]:
@@ -194,7 +342,8 @@ def list_models(base_url: str, timeout: int = 8) -> List[str]:
 
 
 def generate(base_url: str, model: str, brief: str,
-             timeout: int = REQUEST_TIMEOUT_SEC) -> CoachResult:
+             timeout: int = REQUEST_TIMEOUT_SEC,
+             system: str = SYSTEM_PROMPT, max_tokens: int = 200) -> CoachResult:
     """
     Ask the model to phrase the brief.
 
@@ -207,9 +356,9 @@ def generate(base_url: str, model: str, brief: str,
         "stream": False,
         # Reasoning models otherwise spend the token budget thinking out loud.
         "think": False,
-        "options": {"temperature": 0.3, "num_predict": 200},
+        "options": {"temperature": 0.3, "num_predict": max_tokens},
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": brief},
         ],
     }).encode("utf-8")
