@@ -29,23 +29,61 @@ SEMICIRCLE_TO_DEGREES = 180.0 / (2 ** 31)
 
 SUPPORTED = (".gpx", ".tcx", ".fit", ".zip")
 
-# Sport names as the exporters write them, mapped to ours.
+# Sport names as the exporters write them, mapped to ours. Garmin's activity
+# type keys are the richest source and are included verbatim.
 SPORT_ALIASES = {
     "running": "running", "run": "running", "trail_running": "running",
+    "street_running": "running", "track_running": "running",
+    "ultra_run": "running", "obstacle_run": "running",
     "treadmill_running": "treadmill", "indoor_running": "treadmill",
-    "walking": "walking", "walk": "walking",
-    "hiking": "hiking", "hike": "hiking",
+    "virtual_run": "treadmill",
+    "walking": "walking", "walk": "walking", "casual_walking": "walking",
+    "speed_walking": "walking", "indoor_walking": "walking",
+    "hiking": "hiking", "hike": "hiking", "mountaineering": "hiking",
     "cycling": "cycling", "biking": "cycling", "road_biking": "cycling",
+    "mountain_biking": "cycling", "gravel_cycling": "cycling",
+    "indoor_cycling": "cycling", "virtual_ride": "cycling",
     "swimming": "swimming", "lap_swimming": "swimming",
+    "open_water_swimming": "swimming",
+    "rowing": "rowing", "indoor_rowing": "rowing",
     "training": "gym", "strength_training": "gym", "fitness_equipment": "gym",
-    "cardio_training": "gym", "generic": "other", "other": "other",
+    "cardio_training": "gym", "indoor_cardio": "gym", "yoga": "gym",
+    "pilates": "gym", "elliptical": "gym", "stair_climbing": "gym",
+    "indoor_climbing": "gym", "bouldering": "gym", "hiit": "gym",
+    "generic": "other", "other": "other", "multi_sport": "other",
 }
+
+# Garmin has well over a hundred activity type keys and adds more. Matching a
+# fragment catches the ones the table has not been told about -- a new
+# "beach_running" should count as a run, not fall into the catch-all.
+SPORT_FRAGMENTS = (
+    ("treadmill", "treadmill"),
+    ("run", "running"),
+    ("jog", "running"),
+    ("walk", "walking"),
+    ("hik", "hiking"),
+    ("trek", "hiking"),
+    ("cycl", "cycling"),
+    ("bik", "cycling"),
+    ("ride", "cycling"),
+    ("swim", "swimming"),
+    ("row", "rowing"),
+    ("strength", "gym"),
+    ("cardio", "gym"),
+    ("training", "gym"),
+)
 
 
 def normalise_sport(raw: Optional[str]) -> str:
     if not raw:
         return "running"
-    return SPORT_ALIASES.get(str(raw).strip().lower().replace(" ", "_"), "other")
+    key = str(raw).strip().lower().replace(" ", "_")
+    if key in SPORT_ALIASES:
+        return SPORT_ALIASES[key]
+    for fragment, sport in SPORT_FRAGMENTS:
+        if fragment in key:
+            return sport
+    return "other"
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:

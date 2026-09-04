@@ -513,8 +513,11 @@ class ActivityProcessor:
         # Name it after what it actually was. Calling a gym session a
         # "Running Session" is the kind of small wrongness that makes the rest
         # of the numbers harder to trust.
-        activity.name = payload.title or _default_name(activity.sport_type)
+        # Sport first: the fallback name is derived from it, and on a re-sync
+        # the old value is still in place until it is overwritten -- which named
+        # a reclassified walk after whatever it used to be.
         activity.sport_type = payload.sport_type or "running"
+        activity.name = payload.title or _default_name(activity.sport_type)
         activity.start_time = start_time
         activity.end_time = end_time
         activity.elapsed_time_sec = elapsed_sec

@@ -25,7 +25,7 @@ from datetime import date, datetime, timedelta
 from typing import Callable, List, Optional, Tuple
 
 from backend.app.models.schemas import HealthConnectSessionPayload
-from backend.app.services.file_import import parse_any
+from backend.app.services.file_import import normalise_sport, parse_any
 
 # Where garth keeps its session tokens, one directory per athlete.
 TOKEN_ROOT = os.getenv("CONNECTION_TOKEN_DIR", "/data/connections")
@@ -121,6 +121,22 @@ def disconnect(user_id: str) -> None:
     shutil.rmtree(token_dir(user_id), ignore_errors=True)
 
 
+def _sport_of(entry: dict) -> Optional[str]:
+    """
+    The activity's real sport, from the listing rather than the file.
+
+    TCX cannot express it. Its schema allows exactly three values for the Sport
+    attribute -- Running, Biking and Other -- so Garmin exports every walk,
+    hike, swim and gym session as "Other", and a walk would land in whatever
+    bucket catches everything that is not a run. The listing entry carries
+    Garmin's own type key ("walking", "strength_training", "lap_swimming"),
+    which is what the athlete actually chose on the watch.
+    """
+    kind = entry.get("activityType")
+    key = kind.get("typeKey") if isinstance(kind, dict) else kind
+    return normalise_sport(key) if key else None
+
+
 def _payloads_from_download(raw: bytes, activity_id: str, fmt: str) -> List[HealthConnectSessionPayload]:
     """Turn a downloaded activity into payloads, whatever Garmin sent."""
     name = f"garmin_{activity_id}.{fmt}"
@@ -187,6 +203,9 @@ def fetch_since(
                 name = entry.get("activityName")
                 if name:
                     payload.title = name
+                sport = _sport_of(entry)
+                if sport:
+                    payload.sport_type = sport
                 process(payload)
                 imported += 1
         except Exception:
