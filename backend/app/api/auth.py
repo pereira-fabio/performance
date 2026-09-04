@@ -36,6 +36,7 @@ router = APIRouter(prefix="/auth", tags=["Accounts"])
 
 
 class Credentials(BaseModel):
+    """Registration, where the constraints belong."""
     username: str = Field(min_length=2, max_length=64)
     password: str = Field(min_length=1, max_length=256)
     display_name: Optional[str] = Field(default=None, max_length=128)
@@ -154,8 +155,20 @@ def register(body: Credentials, db: Session = Depends(get_db)):
     )
 
 
+class LoginCredentials(BaseModel):
+    """
+    Signing in, where they do not.
+
+    A rule tightened after an account was made would otherwise lock that
+    account out permanently: the username is only a lookup key here, and
+    validating it decides nothing.
+    """
+    username: str = Field(max_length=64)
+    password: str = Field(max_length=256)
+
+
 @router.post("/login", response_model=Session_)
-def login(body: Credentials, db: Session = Depends(get_db)):
+def login(body: LoginCredentials, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username.strip().lower()).first()
     # The same message either way: distinguishing them tells an attacker which
     # usernames exist.

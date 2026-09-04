@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # Directory of SRTM .hgt (or .hgt.zip) tiles; empty disables the lookup.
     DEM_DIR: str = os.getenv("DEM_DIR", "/data/dem")
 
+    # A locally hosted language model that writes commentary on training. It
+    # only ever rephrases figures this server computed; nothing depends on it
+    # being reachable.
+    OLLAMA_URL: str = os.getenv("OLLAMA_URL", "")
+    OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+
     # Aerobic Decoupling thresholds
     DECOUPLING_WINDOW_MIN_DURATION_SEC: int = 1200 # Minimum 20 mins for valid decoupling calculation
     

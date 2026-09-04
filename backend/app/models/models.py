@@ -44,6 +44,28 @@ class AuthToken(Base):
     last_used_at = Column(DateTime, nullable=True)
 
 
+class Insight(Base):
+    """
+    A generated note about a session or a week.
+
+    Cached against a fingerprint of the facts it was written from, so it is
+    regenerated when the training changes and not merely when someone looks at
+    it -- a local model takes about ten seconds and should not run on every
+    page load.
+    """
+    __tablename__ = "insights"
+
+    id = Column(String(64), primary_key=True, default=generate_uuid)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"),
+                     index=True, nullable=False)
+    kind = Column(String(32), nullable=False)        # "activity" or "week"
+    subject_id = Column(String(64), nullable=True)   # activity id, or null
+    fingerprint = Column(String(64), nullable=False)
+    text = Column(Text, nullable=False)
+    model = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class DeviceConnection(Base):
     """
     A linked watch-platform account that is polled for new activities.

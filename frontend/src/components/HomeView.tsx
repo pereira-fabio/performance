@@ -5,6 +5,7 @@ import {
   PieChart, Pie, Cell, Tooltip,
 } from 'recharts';
 import { Card, Stat, StatGrid, Section, Empty } from './Stat';
+import { CoachNoteCard } from './CoachNote';
 import { duration, SPORTS, SportKey } from '../lib/format';
 
 const ATTRIBUTE_LABELS: Record<string, string> = {
@@ -79,6 +80,8 @@ export const HomeView: React.FC<{ data: HomeData | null; onTab: (t: SportKey) =>
                 sub={data.resting_hr ? `resting ${data.resting_hr} bpm` : undefined} />
         </StatGrid>
       </Card>
+
+      <CoachNoteCard title="This week" />
 
       <div className="grid md:grid-cols-2 gap-4 mt-6">
         <div>

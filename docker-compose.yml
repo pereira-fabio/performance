@@ -20,6 +20,10 @@ services:
       # which tiles your routes need. Leave the directory empty to disable.
       - DEM_DIR=/data/dem
       - CONNECTION_TOKEN_DIR=/data/connections
+      # A locally hosted language model that writes commentary on training.
+      # Leave OLLAMA_URL empty to turn the feature off entirely.
+      - OLLAMA_URL=http://192.168.178.147:11434
+      - OLLAMA_MODEL=qwen2.5:7b
     volumes:
       - peakpace_db:/db
       - /opt/peakpace/data:/data

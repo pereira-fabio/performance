@@ -9,7 +9,7 @@ from backend.app.core.migrations import migrate_to_accounts
 # Import models to ensure they are registered with Base.metadata
 from backend.app.models import models
 from backend.app.api import (
-    auth, admin, connections, sync, activities, metrics, settings as settings_api,
+    auth, admin, coach, connections, sync, activities, metrics, settings as settings_api,
 )
 
 # Create database tables automatically with SMB fallback
@@ -87,6 +87,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(connections.router, prefix=settings.API_V1_STR)
+app.include_router(coach.router, prefix=settings.API_V1_STR)
 app.include_router(sync.router, prefix=settings.API_V1_STR)
 app.include_router(activities.router, prefix=settings.API_V1_STR)
 app.include_router(metrics.router, prefix=settings.API_V1_STR)

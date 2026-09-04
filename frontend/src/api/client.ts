@@ -170,6 +170,24 @@ export const syncConnection = async (): Promise<{
   imported: number; skipped: number; found: number; message: string;
 }> => (await api.post('/connections/sync', null, { timeout: 300000 })).data;
 
+export interface CoachNote {
+  available: boolean; text?: string | null; model?: string | null;
+  created_at?: string | null; generated?: boolean; reason?: string | null;
+}
+
+export const getActivityNote = async (id: string, refresh = false): Promise<CoachNote> =>
+  (await api.get<CoachNote>(`/coach/activity/${id}`, {
+    params: { refresh }, timeout: 180000,   // a local model takes seconds, not milliseconds
+  })).data;
+
+export const getWeeklyNote = async (refresh = false): Promise<CoachNote> =>
+  (await api.get<CoachNote>('/coach/week', { params: { refresh }, timeout: 180000 })).data;
+
+export const getCoachStatus = async (): Promise<{
+  enabled: boolean; reachable?: boolean; url?: string; model?: string;
+  available_models?: string[]; reason?: string;
+}> => (await api.get('/coach/status')).data;
+
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }
 };

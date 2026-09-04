@@ -10,6 +10,7 @@ const TE_LABEL = (te?: number) =>
   te == null ? '' : te < 1.5 ? 'Easy' : te < 2.5 ? 'Maintaining'
     : te < 3.5 ? 'Improving' : te < 4.5 ? 'Highly improving' : 'Overreaching';
 import { Stat, StatGrid, Section, Empty, Card } from './Stat';
+import { CoachNoteCard } from './CoachNote';
 
 interface Props {
   activity: Activity;
@@ -98,6 +99,8 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
                 sub={activity.data_quality?.rtss_basis === 'banister_trimp_fallback' ? 'from heart rate' : undefined} />
         </StatGrid></Card>
       )}
+
+      <CoachNoteCard activityId={activity.id} title="Coach's note" />
 
       {/* Effort: what the session cost and what it is likely to have built.
           Both are modelled from load, and say so. */}
