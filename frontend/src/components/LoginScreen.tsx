@@ -84,7 +84,7 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
                   { id: 'health_connect', title: 'Android phone',
                     hint: 'Reads Health Connect through the companion app — Nothing X, Samsung Health, Fitbit and others.' },
                   { id: 'file_import', title: 'Garmin, Polar, Coros or iPhone',
-                    hint: 'No Health Connect. Export activities from your account and import the files here.' },
+                    hint: 'No Health Connect. Link your Garmin account for automatic sync, or import exported files.' },
                 ].map((opt) => (
                   <button type="button" key={opt.id} onClick={() => setSource(opt.id)}
                     className={`w-full text-left p-3 rounded-lg border transition ${

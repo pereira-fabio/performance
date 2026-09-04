@@ -19,21 +19,21 @@ services:
       # Place SRTM .hgt / .hgt.zip files here; run backend/dem_tiles.py to see
       # which tiles your routes need. Leave the directory empty to disable.
       - DEM_DIR=/data/dem
+      - CONNECTION_TOKEN_DIR=/data/connections
     volumes:
       - peakpace_db:/db
       - /opt/peakpace/data:/data
     ports:
       - "8000:8000"
 
-  # Hourly database backup. Declared here rather than run as a stray
-  # container so it is visible, versioned and restarted with the stack.
-  # Reuses the backend image; the script itself lives on the mounted data
-  # volume, so changing it needs no rebuild.
-  backup:
+  # Scheduled work: database backups, and polling linked watch accounts for
+  # athletes who have no Health Connect. Reuses the backend image; the script
+  # lives on the mounted data volume, so changing it needs no rebuild.
+  scheduler:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: performance-backup
+    container_name: performance-scheduler
     restart: unless-stopped
     depends_on:
       - backend
@@ -46,10 +46,13 @@ services:
       # wanted, and a count means something different whenever the schedule does.
       - BACKUP_RETENTION_DAYS=7
       - BACKUP_KEEP_MINIMUM=3
+      # How often linked Garmin accounts are checked for new activities.
+      - CONNECTION_POLL_SEC=1800
+      - CONNECTION_TOKEN_DIR=/data/connections
     volumes:
       - peakpace_db:/db
       - /opt/peakpace/data:/data
-    entrypoint: ["python", "/data/backup.py", "--loop"]
+    entrypoint: ["python", "/data/scheduler.py"]
 
   frontend:
     build:

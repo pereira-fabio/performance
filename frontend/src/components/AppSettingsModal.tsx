@@ -3,6 +3,7 @@ import { Modal, button, input } from './Modal';
 import { recalculateMetrics, exportMyData, deleteAccount } from '../api/client';
 import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
+import { ConnectionCard } from './ConnectionCard';
 
 const OPTIONS: { value: ThemePref; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -12,8 +13,8 @@ const OPTIONS: { value: ThemePref; label: string }[] = [
 
 export const AppSettingsModal: React.FC<{
   isOpen: boolean; onClose: () => void; onUpdated: () => void;
-  activityCount: number; onDeleted: () => void;
-}> = ({ isOpen, onClose, onUpdated, activityCount, onDeleted }) => {
+  activityCount: number; onDeleted: () => void; dataSource?: string;
+}> = ({ isOpen, onClose, onUpdated, activityCount, onDeleted, dataSource }) => {
   const [theme, setTheme] = useState<ThemePref>(getTheme());
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,6 +62,13 @@ export const AppSettingsModal: React.FC<{
           </button>
           {note && <p className="mt-2 text-xs text-muted">{note}</p>}
         </div>
+
+        {dataSource !== 'health_connect' && (
+          <div>
+            <div className="text-xs text-muted mb-2">Automatic sync</div>
+            <ConnectionCard onChanged={onUpdated} />
+          </div>
+        )}
 
         <div>
           <div className="text-xs text-muted mb-2">Your data</div>

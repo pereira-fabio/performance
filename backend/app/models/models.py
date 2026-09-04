@@ -44,6 +44,27 @@ class AuthToken(Base):
     last_used_at = Column(DateTime, nullable=True)
 
 
+class DeviceConnection(Base):
+    """
+    A linked watch-platform account that is polled for new activities.
+
+    Only the session tokens are kept, and those live on disk rather than here;
+    this row records that a link exists and how it is faring.
+    """
+    __tablename__ = "device_connections"
+
+    id = Column(String(64), primary_key=True, default=generate_uuid)
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"),
+                     unique=True, index=True, nullable=False)
+    provider = Column(String(32), default="garmin")
+    account_label = Column(String(128), nullable=True)   # the email, for display
+    enabled = Column(Boolean, default=True)
+    last_synced_at = Column(DateTime, nullable=True)
+    last_status = Column(String(255), nullable=True)
+    last_ok = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Activity(Base):
     __tablename__ = "activities"
     

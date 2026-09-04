@@ -153,6 +153,23 @@ export const importFiles = async (files: File[]): Promise<{
   return res.data;
 };
 
+export interface DeviceConnection {
+  provider: string; account_label?: string | null; enabled: boolean;
+  last_synced_at?: string | null; last_status?: string | null; last_ok: boolean;
+}
+
+export const getConnection = async (): Promise<DeviceConnection | null> =>
+  (await api.get<DeviceConnection | null>('/connections')).data;
+
+export const connectGarmin = async (email: string, password: string, mfa_code?: string) =>
+  (await api.post<DeviceConnection>('/connections/garmin', { email, password, mfa_code })).data;
+
+export const disconnectDevice = async () => { await api.delete('/connections'); };
+
+export const syncConnection = async (): Promise<{
+  imported: number; skipped: number; found: number; message: string;
+}> => (await api.post('/connections/sync', null, { timeout: 300000 })).data;
+
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }
 };

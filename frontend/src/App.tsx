@@ -158,7 +158,8 @@ export const App: React.FC = () => {
                   currentUserId={session?.user_id} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
                         onUpdated={load} activityCount={activities.length}
-                        onDeleted={() => { setSettingsOpen(false); setSession(null); }} />
+                        onDeleted={() => { setSettingsOpen(false); setSession(null); }}
+                        dataSource={session?.data_source} />
       <ImportModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}
                    onImported={load} dataSource={session?.data_source} />
     </>
