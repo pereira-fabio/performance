@@ -311,11 +311,12 @@ export const SettingsModal: React.FC<{
             </button>
           </div>
 
-          {/* Deliberately below the fold, past the buttons you actually came
-              for. Signing out throws away what you were doing and there is no
-              undo, so reaching it should take a moment's intent rather than a
-              stray tap next to Save. */}
-          <div className="pt-24 pb-2 flex items-center justify-between gap-3">
+          {/* Set apart from the buttons you actually came for. Signing out
+              throws away what you were doing and there is no undo, so it gets
+              its own space and its own rule rather than sharing an edge with
+              Save. */}
+          <div className="mt-8 pt-4 pb-1 border-t border-line
+                          flex items-center justify-between gap-3">
             <span className="text-2xs text-faint truncate">
               {username ? `Signed in as ${username}` : 'Signed in'}
             </span>
