@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
+from backend.app.services.avatars import remove_avatar
 from backend.app.core.security import (
     hash_password, verify_password, new_token, password_problem,
 )
@@ -262,6 +263,7 @@ def delete_account(
     # enforce ON DELETE CASCADE unless the pragma is set, so these rows would
     # otherwise outlive the account that owned them.
     db.query(CycleEntry).filter(CycleEntry.user_id == user.id).delete(synchronize_session=False)
+    remove_avatar(user.id)
     db.query(AuthToken).filter(AuthToken.user_id == user.id).delete(synchronize_session=False)
     db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
     db.commit()

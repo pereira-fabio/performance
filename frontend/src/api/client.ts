@@ -326,3 +326,33 @@ export const logCycleDay = async (date: string, flow?: string | null) =>
 
 export const unlogCycleDay = async (date: string) =>
   (await api.delete('/cycle/day', { params: { date } })).data;
+
+// -------------------------------------------------------------- avatar ---
+
+export const uploadAvatar = async (image: Blob): Promise<void> => {
+  const form = new FormData();
+  form.append('file', image, 'avatar.jpg');
+  // The content type is left to the browser: it has to set the multipart
+  // boundary, and the client default would override it with the wrong value.
+  await api.post('/settings/avatar', form, { headers: { 'Content-Type': undefined } });
+};
+
+export const deleteAvatar = async (): Promise<void> => {
+  await api.delete('/settings/avatar');
+};
+
+/**
+ * The athlete's picture as an object URL, or null if there is none.
+ *
+ * Fetched rather than pointed at with an img src, because the endpoint is
+ * behind the session and an img tag cannot carry the header. The caller owns
+ * the returned URL and must revoke it.
+ */
+export const fetchAvatarUrl = async (): Promise<string | null> => {
+  try {
+    const res = await api.get('/settings/avatar', { responseType: 'blob' });
+    return URL.createObjectURL(res.data as Blob);
+  } catch {
+    return null;
+  }
+};

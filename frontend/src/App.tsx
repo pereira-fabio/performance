@@ -173,7 +173,10 @@ export const App: React.FC = () => {
             onImport={() => { setMenuOpen(false); setUploadOpen(true); }}
             dataSource={session?.data_source}
             onSignOut={async () => { await logout(); setSession(null); }} />
-      <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={load} />
+      {/* Bumps the same counter as app settings: uploading a picture has to
+          refresh the level badge on the home page, which reads it directly. */}
+      <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)}
+                     onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }} />
       <AdminModal isOpen={adminOpen} onClose={() => setAdminOpen(false)}
                   currentUserId={session?.user_id} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}

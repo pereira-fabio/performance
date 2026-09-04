@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.api.auth import current_user
+from backend.app.services.avatars import remove_avatar
 from backend.app.core.backup import list_backups, run_once, prune, _settings
 from backend.app.core.database import get_db
 from backend.app.models.models import (
@@ -141,6 +142,7 @@ def delete_user(
     # enforce ON DELETE CASCADE unless the pragma is set, so these rows would
     # otherwise outlive the account that owned them.
     db.query(CycleEntry).filter(CycleEntry.user_id == target.id).delete(synchronize_session=False)
+    remove_avatar(target.id)
     db.query(AuthToken).filter(AuthToken.user_id == target.id).delete(synchronize_session=False)
     db.query(User).filter(User.id == target.id).delete(synchronize_session=False)
     db.commit()

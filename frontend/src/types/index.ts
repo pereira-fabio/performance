@@ -181,6 +181,7 @@ export interface UserProfile {
   birth_date?: string | null;
   hr_zones?: Record<string, [number, number]>;
   pace_zones?: Record<string, [number, number]>;
+  has_avatar?: boolean;
 }
 
 /** A change in a figure against the same figure in the previous period. */

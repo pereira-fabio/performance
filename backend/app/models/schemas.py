@@ -152,6 +152,10 @@ class UserProfileSchema(BaseModel):
     birth_date: Optional[date] = None
     hr_zones: Optional[Dict[str, List[int]]] = None
     pace_zones: Optional[Dict[str, List[float]]] = None
+    # Set by the API from the filesystem, not stored on the row: the picture
+    # lives as a file, and duplicating its existence in the database would be
+    # one more thing to keep in step.
+    has_avatar: bool = False
 
     class Config:
         from_attributes = True

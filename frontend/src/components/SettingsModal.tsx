@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types';
-import { getUserProfile, updateUserProfile } from '../api/client';
+import {
+  getUserProfile, updateUserProfile, uploadAvatar, deleteAvatar,
+} from '../api/client';
 import { Modal, Field, input, button } from './Modal';
 import { describeError } from '../lib/errors';
+import { squareThumbnail } from '../lib/image';
+import { Avatar } from './Avatar';
 
 /**
  * The athlete's own numbers.
@@ -47,12 +51,17 @@ export const SettingsModal: React.FC<{
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // Bumped after an upload so the preview re-reads rather than showing the
+  // picture that was there a moment ago.
+  const [avatarVersion, setAvatarVersion] = useState(0);
+  const [picture, setPicture] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setNote(null);
     getUserProfile()
-      .then(setProfile)
+      .then((p) => { setProfile(p); setPicture(!!p.has_avatar); })
       .catch((e) => setNote(describeError(e, 'Could not load your profile')));
   }, [isOpen]);
 
@@ -94,6 +103,61 @@ export const SettingsModal: React.FC<{
         <p className="text-[13px] text-muted">{note ?? 'Loading…'}</p>
       ) : (
         <form onSubmit={save} className="space-y-5">
+          <div className="flex items-center gap-4">
+            <div className="shrink-0 h-16 w-16 rounded-2xl overflow-hidden grid place-items-center
+                            bg-surface border border-line text-faint">
+              <Avatar size={64} version={avatarVersion}
+                      fallback={<span className="text-2xs">No picture</span>} />
+            </div>
+            <div className="min-w-0">
+              <input ref={fileInput} type="file" accept="image/*" className="hidden"
+                     onChange={async (e) => {
+                       const file = e.target.files?.[0];
+                       // Cleared straight away so choosing the same file twice
+                       // still fires a change event.
+                       e.target.value = '';
+                       if (!file) return;
+                       setSaving(true);
+                       setNote(null);
+                       try {
+                         await uploadAvatar(await squareThumbnail(file));
+                         setAvatarVersion((v) => v + 1);
+                         setPicture(true);
+                         onUpdated();
+                       } catch (err: any) {
+                         setNote(err?.message ?? describeError(err, 'Could not save that picture'));
+                       } finally {
+                         setSaving(false);
+                       }
+                     }} />
+              <button type="button" disabled={saving} onClick={() => fileInput.current?.click()}
+                      className="text-xs font-semibold text-accent hover:underline disabled:opacity-50">
+                {picture ? 'Change picture' : 'Upload a picture'}
+              </button>
+              {picture && (
+                <button type="button" disabled={saving}
+                        onClick={async () => {
+                          setSaving(true);
+                          try {
+                            await deleteAvatar();
+                            setAvatarVersion((v) => v + 1);
+                            setPicture(false);
+                            onUpdated();
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                        className="ml-3 text-xs text-faint hover:text-negative transition">
+                  Remove
+                </button>
+              )}
+              <p className="mt-1 text-2xs text-faint">
+                Shown on your home page in place of the level number. Cropped to a square and
+                scaled down here before it is sent.
+              </p>
+            </div>
+          </div>
+
           <div className="space-y-3">
             <Field label="Name">
               <input className={input} value={profile.name}

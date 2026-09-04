@@ -8,6 +8,7 @@ import { Card, Stat, StatGrid, Section, Empty } from './Stat';
 import { CoachNoteCard } from './CoachNote';
 import { LastWeekCard } from './LastWeekCard';
 import { CycleCard } from './CycleView';
+import { Avatar } from './Avatar';
 import { duration, SPORTS, SportKey } from '../lib/format';
 
 const ATTRIBUTE_LABELS: Record<string, string> = {
@@ -53,8 +54,12 @@ export const HomeView: React.FC<{
           makes it a fair summary of everything done so far. */}
       <Card className="p-5">
         <div className="flex items-center gap-4">
-          <div className="shrink-0 h-14 w-14 rounded-2xl grid place-items-center bg-accent text-white">
-            <span className="text-xl font-bold tnum">{p.level}</span>
+          {/* The picture replaces the number, not the level: "Level 7" is
+              still written beside it, so nothing is lost by setting one. */}
+          <div className="shrink-0 h-14 w-14 rounded-2xl overflow-hidden grid place-items-center
+                          bg-accent text-white">
+            <Avatar size={56} version={cycleKey}
+                    fallback={<span className="text-xl font-bold tnum">{p.level}</span>} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline justify-between">

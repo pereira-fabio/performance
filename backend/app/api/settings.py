@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.models.models import UserProfile, Activity, User
 from backend.app.api.auth import current_user
 from backend.app.models.schemas import UserProfileSchema
 from backend.app.services.activity_processor import ActivityProcessor
+from backend.app.services.avatars import (
+    MAX_AVATAR_BYTES, avatar_path, media_type_of, remove_avatar, sniff, store,
+)
 
 router = APIRouter(prefix="/settings", tags=["User Settings"])
 
@@ -24,7 +30,9 @@ def get_user_profile(db: Session = Depends(get_db), user: User = Depends(current
         db.add(profile)
         db.commit()
         db.refresh(profile)
-    return profile
+    out = UserProfileSchema.model_validate(profile)
+    out.has_avatar = avatar_path(user.id) is not None
+    return out
 
 @router.put("/profile", response_model=UserProfileSchema)
 def update_user_profile(payload: UserProfileSchema, db: Session = Depends(get_db), user: User = Depends(current_user)):
@@ -52,7 +60,9 @@ def update_user_profile(payload: UserProfileSchema, db: Session = Depends(get_db
 
     db.commit()
     db.refresh(profile)
-    return profile
+    out = UserProfileSchema.model_validate(profile)
+    out.has_avatar = avatar_path(user.id) is not None
+    return out
 
 @router.post("/recalculate")
 def recalculate_all_metrics(db: Session = Depends(get_db), user: User = Depends(current_user)):
@@ -79,3 +89,49 @@ def recalculate_all_metrics(db: Session = Depends(get_db), user: User = Depends(
             "and training load are not yet recomputed against new thresholds."
         ),
     }
+
+
+@router.post("/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user: User = Depends(current_user),
+):
+    """
+    Store a picture for the athlete.
+
+    The browser scales it to a small square before it gets here, so this only
+    has to reject what should never have been sent: something that is not an
+    image, or something far larger than a scaled one could be.
+    """
+    data = await file.read(MAX_AVATAR_BYTES + 1)
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "That file is empty.")
+    if len(data) > MAX_AVATAR_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            "That picture is too large.")
+    kind = sniff(data)
+    if kind is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "That is not a PNG, JPEG or WebP image.")
+    extension, _ = kind
+
+    store(user.id, data, extension)
+    return {"stored": True, "bytes": len(data)}
+
+
+@router.get("/avatar")
+def read_avatar(user: User = Depends(current_user)):
+    """The athlete's own picture. Behind the session like everything else."""
+    path = avatar_path(user.id)
+    if not path:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No picture set.")
+    with open(path, "rb") as handle:
+        data = handle.read()
+    return Response(content=data, media_type=media_type_of(path),
+                    headers={"Cache-Control": "no-cache"})
+
+
+@router.delete("/avatar")
+def delete_avatar(user: User = Depends(current_user)):
+    remove_avatar(user.id)
+    return {"stored": False}
