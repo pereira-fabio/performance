@@ -69,19 +69,18 @@ export const Menu: React.FC<MenuProps> = ({
           <Item label="Settings" hint="Appearance and maintenance"
                 icon={svg('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6|M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7.26 19.4l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3 12.91V12a2 2 0 0 1 4 0')}
                 onClick={onSettings} />
-          {/* Administration last: least used, and the most consequential. */}
+        </div>
+
+        {/* Administration sits at the foot, apart from the screens opened
+            every day: it is the least used and the most consequential.
+            Signing out lives with the account it ends, under Profile. */}
+        <div className="mt-auto border-t border-line">
           {isAdmin && (
             <Item label="Administration" hint="Accounts and backups"
                   icon={svg('M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z')}
                   onClick={onAdmin} />
           )}
-        </div>
-
-        <div className="mt-auto border-t border-line">
-          {/* Signing out lives with the account it ends, under Profile. A
-              destructive action does not belong one slip away from the things
-              you open every day. */}
-          <div className="px-5 py-4 text-xs text-faint">
+          <div className="px-5 pb-4 pt-3 text-xs text-faint">
             Self-hosted · your data stays on your server
           </div>
         </div>

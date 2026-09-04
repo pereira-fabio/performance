@@ -121,9 +121,49 @@ Recovery hours are estimated from the same load, adjusted for current form. Both
 
 ---
 
+## VO2 max
+
+Reported by the device where it reports one. Several watches do not — Garmin
+withholds it on some models, and a phone gets whatever the vendor wrote — so
+where nothing measured it, it is **estimated** from the best running effort of
+the last 120 days and labelled as an estimate.
+
+The method is Daniels and Gilbert's VDOT (*Oxygen Power*, 1979): the oxygen
+cost of the speed held, divided by the fraction of maximum sustainable for that
+long. Only efforts between 3 and 90 minutes and over 1200 m are used — shorter
+is anaerobic enough that the model overestimates, longer and the athlete is
+fading for reasons the curve does not describe, and below 1200 m a few seconds
+of GPS error moves the answer more than the running does.
+
+The best effort is taken rather than the average: every effort that was not
+all-out understates the ceiling, so a mean is dragged down by easy days. A
+measured reading always wins over an estimate.
+
+## Body composition
+
+BMI is weight over height squared and knows nothing else. It cannot tell muscle
+from fat, which is why it reads a lean, heavily trained runner as overweight. It
+is shown because it is the figure everyone recognises, beside something that
+answers the question BMI is usually being asked.
+
+That is the **US Navy circumference method** (Hodgdon and Beckett, 1984), which
+estimates body fat from girths: neck and waist against height for men, with hips
+as well for women. The two formulas are not interchangeable, so an athlete who
+has not recorded their sex gets no estimate rather than the wrong one, and a
+woman without a hip measurement gets none either.
+
+It is not a DEXA scan. It is repeatable with a tape measure at home, which makes
+it useful for watching a direction of travel rather than chasing an absolute.
+Lean mass is shown alongside because it is the figure worth watching across a
+training block: it should hold steady while weight moves.
+
+Implausible measurements produce nothing rather than a figure — a waist entered
+in inches, or a height in metres, would otherwise give an answer that looks
+right. Neither figure is a diagnosis.
+
 ## Zones, splits and best efforts
 
-- **Heart-rate zones** from your max, resting and threshold heart rates.
+- **Heart-rate zones** from your max, resting and threshold heart rates, and **pace zones** from your threshold pace. Every zone is shown, including those with no time in them: an empty zone says the effort never reached it, and hiding it makes the chart look like it is missing rows. Where almost everything lands in one zone, the thresholds it is measured against are usually still the defaults, and the activity page says so.
 - **Splits** per kilometre, with pace, GAP, heart rate and elevation change. A trailing partial kilometre is marked and excluded from comparisons.
 - **Best efforts** at 400 m, 1 km, 1 mile, 5 km, 10 km, half and full marathon, found as the fastest window anywhere in the activity.
 - **Personal records** keep the best *three* at each distance, ranked. A record alone does not say whether it was a step or a leap; the two behind it do, and beating your second-fastest 5k is a real result on a day the record is out of reach. Only one entry per run, since a single session holds several efforts at a distance and three rows from one morning is a list of one run. Each opens the run it happened in.

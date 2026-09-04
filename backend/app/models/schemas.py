@@ -77,10 +77,12 @@ class BestEffortOut(BaseModel):
     time_seconds: float
     pace_sec_km: float
     is_personal_record: bool
-    # 1, 2 or 3 -- the best three at this distance rather than only the best.
-    # Second and third are the ones that say whether a record is a plateau or
-    # a jump, and they are what you chase next.
-    rank: int = 1
+    # Where this effort stands against every other at the same distance: 1, 2,
+    # 3, or None for one that is not in the top three. Null rather than 1 by
+    # default, because these are also serialised as part of an activity, where
+    # nothing has ranked them -- and a default of 1 there would have every
+    # effort in every run claiming to be a record.
+    rank: Optional[int] = None
     # Which run it happened in, so a record can be opened rather than just read.
     activity_id: Optional[str] = None
     activity_name: Optional[str] = None
@@ -157,6 +159,9 @@ class UserProfileSchema(BaseModel):
     threshold_pace_sec: float
     weight_kg: float
     height_cm: Optional[float] = None
+    neck_cm: Optional[float] = None
+    waist_cm: Optional[float] = None
+    hip_cm: Optional[float] = None
     birth_date: Optional[date] = None
     hr_zones: Optional[Dict[str, List[int]]] = None
     pace_zones: Optional[Dict[str, List[float]]] = None
@@ -164,6 +169,9 @@ class UserProfileSchema(BaseModel):
     # lives as a file, and duplicating its existence in the database would be
     # one more thing to keep in step.
     has_avatar: bool = False
+    # Derived from the measurements above, never stored: recomputing is free,
+    # and a stored figure would go stale the moment a measurement changed.
+    composition: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

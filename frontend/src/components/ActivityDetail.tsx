@@ -6,7 +6,6 @@ import {
 } from 'recharts';
 import { pace, duration, km, dateLabel, timeLabel, bucketOf, SPORTS, whyMissing } from '../lib/format';
 import { Stat, StatGrid, Section, Empty, Card } from './Stat';
-import { CoachNoteCard } from './CoachNote';
 
 const TE_LABEL = (te?: number) =>
   te == null ? '' : te < 1.5 ? 'Easy' : te < 2.5 ? 'Maintaining'
@@ -338,6 +337,12 @@ const ZoneSection: React.FC<{
   if (!zones.length) return null;
   const total = zones.reduce((sum, [, v]) => sum + v, 0);
 
+  // Nearly everything in one zone almost always means the thresholds these are
+  // measured against are still the defaults, not that the session was flat.
+  // Saying so is more use than showing one full bar and five empty ones.
+  const busiest = Math.max(...zones.map(([, v]) => v));
+  const lopsided = total > 0 && busiest / total > 0.85;
+
   return (
     <Section
       title="Time in zones"
@@ -367,6 +372,14 @@ const ZoneSection: React.FC<{
           ? 'From your maximum, resting and threshold heart rates. Totals cover measured time, not elapsed time.'
           : 'From your threshold pace. A climb shows here as an easy zone and in the heart-rate zones as a hard one, which is the hill rather than a contradiction.'}
       </p>
+      {lopsided && (
+        <p className="mt-2 text-2xs text-caution">
+          Almost all of this session sits in one zone. That usually means the{' '}
+          {active === 'hr' ? 'heart rates' : 'threshold pace'} these are measured against are
+          still the defaults — set yours under Profile and future activities will be split
+          properly.
+        </p>
+      )}
     </Section>
   );
 };
@@ -447,12 +460,19 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
     }));
   }, [points]);
 
-  // Sorted by zone key so z10 could never sort before z2, and so the colour
-  // ramp always lines up with the order the zones are defined in.
+  /**
+   * Every zone, including the ones with no time in them.
+   *
+   * They were filtered out, which meant a session spent in three heart-rate
+   * zones showed three rows and looked like the other two had gone missing.
+   * An empty zone is information: it says the effort never reached it.
+   *
+   * Sorted by zone key so z10 could never sort before z2, and so the colour
+   * ramp lines up with the order the zones are defined in.
+   */
   const asZones = (source?: Record<string, number> | null): [string, number][] =>
     source
       ? (Object.entries(source) as [string, number][])
-          .filter(([, v]) => v > 0)
           .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
       : [];
   const hrZones = asZones(activity.hr_zone_seconds);
@@ -533,8 +553,6 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
       )}
 
       <ZoneSection hr={hrZones} paceZones={paceZones} />
-
-      <CoachNoteCard activityId={activity.id} title="Coach's note" />
 
       {/* Effort: what the session cost and what it is likely to have built.
           Both are modelled from load, and say so. */}

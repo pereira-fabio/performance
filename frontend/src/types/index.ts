@@ -17,8 +17,8 @@ export interface BestEffort {
   time_seconds: number;
   pace_sec_km: number;
   is_personal_record: boolean;
-  /** 1, 2 or 3 at this distance. */
-  rank: number;
+  /** 1, 2 or 3 all-time at this distance, or absent if it is not in the top three. */
+  rank?: number | null;
   activity_id?: string | null;
   activity_name?: string | null;
   achieved_at?: string | null;
@@ -146,6 +146,8 @@ export interface HomeData {
   totals: { activities: number; runs: number; km: number; hours: number };
   form: { ctl: number; tsb: number; readiness?: number | null };
   vo2_max?: number | null;
+  /** True when no device reported one and it was derived from a best effort. */
+  vo2_max_estimated?: boolean;
   resting_hr?: number | null;
   achievements: Achievement[];
 }
@@ -182,8 +184,18 @@ export interface UserProfile {
   threshold_pace_sec: number;
   weight_kg: number;
   height_cm?: number | null;
+  neck_cm?: number | null;
+  waist_cm?: number | null;
+  hip_cm?: number | null;
   /** ISO date. Stored rather than an age, so it does not go stale. */
   birth_date?: string | null;
+  /** Derived from the measurements, recomputed on every read. */
+  composition?: {
+    bmi: number | null;
+    body_fat_percent: number | null;
+    body_fat_band: string | null;
+    lean_mass_kg: number | null;
+  } | null;
   hr_zones?: Record<string, [number, number]>;
   pace_zones?: Record<string, [number, number]>;
   has_avatar?: boolean;

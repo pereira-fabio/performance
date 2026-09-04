@@ -133,10 +133,13 @@ export const StatsView: React.FC<{
           <Stat label="Time" value={totals.hours.toFixed(0)} unit="h"
                 sub={`${totals.activities} sessions`} />
           <Stat label="Fitness" value={Math.round(form.ctl)} tone="accent" sub="running CTL" />
-          {/* The subtitle describes resting heart rate, so it is omitted
-              rather than saying "not recorded" under the VO2 max figure. */}
+          {/* An estimate says so. A figure derived from a best effort is
+              worth having when no watch reports one, but not worth passing
+              off as a measurement. */}
           <Stat label="VO₂ max" value={data.vo2_max ? Math.round(data.vo2_max) : '—'}
-                sub={data.resting_hr ? `resting ${data.resting_hr} bpm` : undefined} />
+                sub={data.vo2_max && data.vo2_max_estimated
+                  ? 'estimated from your best effort'
+                  : data.resting_hr ? `resting ${data.resting_hr} bpm` : undefined} />
         </StatGrid>
       </Card>
 

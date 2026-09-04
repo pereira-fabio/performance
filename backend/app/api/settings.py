@@ -8,6 +8,7 @@ from backend.app.models.models import UserProfile, Activity, User
 from backend.app.api.auth import current_user
 from backend.app.models.schemas import UserProfileSchema
 from backend.app.services.activity_processor import ActivityProcessor
+from backend.app.physiology.body import composition
 from backend.app.services.avatars import (
     MAX_AVATAR_BYTES, avatar_path, media_type_of, remove_avatar, sniff, store,
 )
@@ -32,6 +33,7 @@ def get_user_profile(db: Session = Depends(get_db), user: User = Depends(current
         db.refresh(profile)
     out = UserProfileSchema.model_validate(profile)
     out.has_avatar = avatar_path(user.id) is not None
+    out.composition = composition(profile)
     return out
 
 @router.put("/profile", response_model=UserProfileSchema)
@@ -49,6 +51,9 @@ def update_user_profile(payload: UserProfileSchema, db: Session = Depends(get_db
     profile.threshold_pace_sec = payload.threshold_pace_sec
     profile.weight_kg = payload.weight_kg
     profile.height_cm = payload.height_cm
+    profile.neck_cm = payload.neck_cm
+    profile.waist_cm = payload.waist_cm
+    profile.hip_cm = payload.hip_cm
     profile.birth_date = payload.birth_date
     # These belong to the profile, not the account. Assigned to the account they
     # went nowhere: SQLAlchemy lets you set any attribute on an instance, so
@@ -62,6 +67,7 @@ def update_user_profile(payload: UserProfileSchema, db: Session = Depends(get_db
     db.refresh(profile)
     out = UserProfileSchema.model_validate(profile)
     out.has_avatar = avatar_path(user.id) is not None
+    out.composition = composition(profile)
     return out
 
 @router.post("/recalculate")

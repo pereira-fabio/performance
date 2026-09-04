@@ -81,7 +81,7 @@ export const PersonalRecordsView: React.FC<{
                     : {})}
                   className={`w-full flex items-center gap-2 text-left rounded-md px-1 -mx-1 py-0.5 ${
                     clickable ? 'hover:bg-surface transition cursor-pointer' : ''}`}>
-                  <Medal rank={r.rank} />
+                  {r.rank ? <Medal rank={r.rank} /> : null}
                   <span className={`tnum tracking-tight text-fg-strong ${
                     r.rank === 1 ? 'text-lg font-semibold' : 'text-[13px] font-medium'}`}>
                     {clock(r.time_seconds)}

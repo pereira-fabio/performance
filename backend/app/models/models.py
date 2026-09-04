@@ -283,6 +283,11 @@ class UserProfile(Base):
     threshold_pace_sec = Column(Float, default=240.0) # 4:00/km
     weight_kg = Column(Float, default=70.0)
     height_cm = Column(Float, nullable=True)
+    # Girths for the circumference estimate of body fat. Hips are only used by
+    # the female formula, so the column is often empty by design.
+    neck_cm = Column(Float, nullable=True)
+    waist_cm = Column(Float, nullable=True)
+    hip_cm = Column(Float, nullable=True)
     # Stored as a date rather than an age, so it does not quietly go stale.
     birth_date = Column(Date, nullable=True)
     

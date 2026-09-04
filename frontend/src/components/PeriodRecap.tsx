@@ -180,7 +180,12 @@ export const ReportBody: React.FC<{
             </div>
           </Section>
 
-          <PeriodNoteCard kind={report.kind} periodKey={report.key} />
+          {/* Only months and years. A week is short enough to read from the
+              figures, and a note on every screen turned generated prose into
+              furniture rather than something you stop and read. */}
+          {report.kind !== 'week' && (
+            <PeriodNoteCard kind={report.kind} periodKey={report.key} />
+          )}
 
           <Section title="How it compares" flush>
             {hasComparison ? (

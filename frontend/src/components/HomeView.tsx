@@ -1,7 +1,6 @@
 import React from 'react';
 import { HomeData } from '../types';
 import { Card, Section, Empty } from './Stat';
-import { CoachNoteCard } from './CoachNote';
 import { ThisWeekCard, LastWeekCard } from './WeekCards';
 import { CycleCard } from './CycleView';
 import { Avatar } from './Avatar';
@@ -68,8 +67,6 @@ export const HomeView: React.FC<{
       {onOpenRecap && <LastWeekCard onOpen={onOpenRecap} />}
 
       <CycleCard refreshKey={cycleKey} />
-
-      <CoachNoteCard title="This week so far" />
 
       <Section title="Achievements" flush
                aside={<span className="text-xs text-faint tnum">

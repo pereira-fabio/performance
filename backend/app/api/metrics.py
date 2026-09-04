@@ -11,6 +11,7 @@ from backend.app.core.sports import RUNNING_SPORTS, is_running
 from backend.app.physiology.progress import (
     level_for_xp, evaluate_achievements, attribute_scores, _streak_weeks,
 )
+from backend.app.physiology.vo2max import best_estimate
 from backend.app.models.schemas import PMCPointOut, BestEffortOut
 
 router = APIRouter(prefix="/metrics", tags=["Metrics & Physiology Trends"])
@@ -37,6 +38,9 @@ def get_pmc_chart(
 # How many efforts to keep per distance. Three because a personal best on its
 # own does not say whether it was a step or a leap; the two behind it do.
 RECORDS_PER_DISTANCE = 3
+
+# How far back an effort may be and still describe current fitness.
+VO2_WINDOW_DAYS = 120
 
 
 @router.get("/records", response_model=List[BestEffortOut])
@@ -256,6 +260,25 @@ def get_home(db: Session = Depends(get_db), user: User = Depends(current_user)):
         )
         vo2 = vo2_row.vo2_max if vo2_row else None
 
+    # A watch that does not report VO2 max does not mean an athlete without
+    # one. Where nothing measured it, it is estimated from the best recent
+    # running effort and labelled as an estimate -- an athlete with no figure
+    # at all learns less than one with a figure they know is derived.
+    vo2_estimated = False
+    if vo2 is None:
+        cutoff = datetime.utcnow() - timedelta(days=VO2_WINDOW_DAYS)
+        recent = (
+            db.query(BestEffort.distance_meters, BestEffort.time_seconds)
+            .join(Activity, Activity.id == BestEffort.activity_id)
+            .filter(Activity.user_id == user.id,
+                    Activity.sport_type.in_(RUNNING_SPORTS),
+                    BestEffort.achieved_at >= cutoff)
+            .all()
+        )
+        estimate = best_estimate([(d, t) for d, t in recent])
+        if estimate is not None:
+            vo2, vo2_estimated = estimate, True
+
     return {
         "empty": False,
         "progression": progression,
@@ -271,6 +294,7 @@ def get_home(db: Session = Depends(get_db), user: User = Depends(current_user)):
         "form": {"ctl": round(ctl, 1), "tsb": round(tsb, 1),
                  "readiness": latest.readiness_score if latest else None},
         "vo2_max": vo2,
+        "vo2_max_estimated": vo2_estimated,
         "resting_hr": latest.resting_hr if latest else None,
         "achievements": [a.__dict__ for a in achievements],
     }

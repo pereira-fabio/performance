@@ -62,6 +62,9 @@ _ADDED_COLUMNS = {
     "user_profile": [
         ("height_cm", "FLOAT"),
         ("birth_date", "DATE"),
+        ("neck_cm", "FLOAT"),
+        ("waist_cm", "FLOAT"),
+        ("hip_cm", "FLOAT"),
     ],
 }
 

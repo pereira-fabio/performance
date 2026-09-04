@@ -97,6 +97,8 @@ export const SettingsModal: React.FC<{
 
   const age = ageFrom(profile?.birth_date);
   const suggestion = age != null ? estimatedMaxHr(age) : null;
+  const needsHips = (profile?.gender ?? '').toLowerCase() === 'female';
+  const comp = profile?.composition;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Profile"
@@ -105,25 +107,6 @@ export const SettingsModal: React.FC<{
         <p className="text-[13px] text-muted">{note ?? 'Loading…'}</p>
       ) : (
         <form onSubmit={save} className="space-y-5">
-          {/* At the top, with the account it belongs to. At the bottom it sat
-              beside Save, and the one button you must never hit by accident
-              should not share an edge with the one you press every time. */}
-          <div className="flex items-center justify-between gap-3 pb-4 border-b border-line">
-            <span className="text-2xs text-faint truncate">
-              {username ? `Signed in as ${username}` : 'Signed in'}
-            </span>
-            <button type="button" onClick={onSignOut}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold
-                               text-muted hover:text-negative transition">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
-              </svg>
-              Sign out
-            </button>
-          </div>
-
           <div className="flex items-center gap-4">
             <div className="shrink-0 h-16 w-16 rounded-2xl overflow-hidden grid place-items-center
                             bg-surface border border-line text-faint">
@@ -218,6 +201,69 @@ export const SettingsModal: React.FC<{
           </div>
 
           <div className="pt-4 border-t border-line space-y-3">
+            <div className="text-xs text-muted">Measurements</div>
+
+            <div className={`grid gap-3 ${needsHips ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <Field label="Neck" hint="cm">
+                <input type="number" step="0.5" min="20" max="70" className={input}
+                       value={profile.neck_cm ?? ''} placeholder="—"
+                       onChange={(e) =>
+                         set('neck_cm', e.target.value === '' ? null : +e.target.value)} />
+              </Field>
+              <Field label="Waist" hint="cm">
+                <input type="number" step="0.5" min="40" max="200" className={input}
+                       value={profile.waist_cm ?? ''} placeholder="—"
+                       onChange={(e) =>
+                         set('waist_cm', e.target.value === '' ? null : +e.target.value)} />
+              </Field>
+              {/* Only the female formula uses hips, so the field only appears
+                  where it would be used rather than sitting there ignored. */}
+              {needsHips && (
+                <Field label="Hips" hint="cm">
+                  <input type="number" step="0.5" min="50" max="200" className={input}
+                         value={profile.hip_cm ?? ''} placeholder="—"
+                         onChange={(e) =>
+                           set('hip_cm', e.target.value === '' ? null : +e.target.value)} />
+                </Field>
+              )}
+            </div>
+
+            {comp && (comp.bmi != null || comp.body_fat_percent != null) ? (
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-lg bg-surface border border-line">
+                <div>
+                  <div className="text-2xs text-faint">BMI</div>
+                  <div className="text-base font-semibold tnum text-fg-strong">
+                    {comp.bmi ?? '—'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xs text-faint">Body fat</div>
+                  <div className="text-base font-semibold tnum text-fg-strong">
+                    {comp.body_fat_percent != null ? `${comp.body_fat_percent}%` : '—'}
+                  </div>
+                  {comp.body_fat_band && (
+                    <div className="text-2xs text-muted">{comp.body_fat_band}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="text-2xs text-faint">Lean mass</div>
+                  <div className="text-base font-semibold tnum text-fg-strong">
+                    {comp.lean_mass_kg != null ? `${comp.lean_mass_kg} kg` : '—'}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <p className="text-2xs text-faint">
+              Body fat is estimated from your girths by the US Navy method, which is
+              repeatable with a tape measure and useful for watching a direction rather
+              than an absolute. BMI is only weight over height squared and cannot tell
+              muscle from fat, which is why it reads a trained runner as heavy. Both are
+              estimates; neither is a diagnosis. Saved figures update when you save.
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-line space-y-3">
             <div className="text-xs text-muted">Training thresholds</div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -262,6 +308,27 @@ export const SettingsModal: React.FC<{
             <button type="submit" disabled={saving}
                     className={`${button} bg-accent text-white hover:opacity-90`}>
               {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+
+          {/* Deliberately below the fold, past the buttons you actually came
+              for. Signing out throws away what you were doing and there is no
+              undo, so reaching it should take a moment's intent rather than a
+              stray tap next to Save. */}
+          <div className="pt-24 pb-2 flex items-center justify-between gap-3">
+            <span className="text-2xs text-faint truncate">
+              {username ? `Signed in as ${username}` : 'Signed in'}
+            </span>
+            <button type="button" onClick={onSignOut}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                               border border-line text-xs font-semibold text-muted
+                               hover:text-negative hover:border-negative transition">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
+              </svg>
+              Sign out
             </button>
           </div>
         </form>

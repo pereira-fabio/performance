@@ -88,12 +88,12 @@ CPU-only inference works. It is slow — tens of seconds — which is why every 
 
 | Place | Covers | Length |
 | :-- | :-- | :-- |
-| Under an activity | That one session | Up to 3 sentences |
-| Home page | The current rolling 7 days | Up to 3 sentences |
-| Inside a recap | The finished week, month or year, against the previous one | 4–6 sentences |
+| A monthly or yearly report | The finished period, against the one before it | 4–6 sentences |
 | Inside a PDF report | The same review, embedded | 4–6 sentences |
 
-The recap and report use a **separate prompt** with a longer budget, because a review has a comparison to make and cutting it off mid-sentence is worse than the extra seconds.
+**Only months and years.** There is no note on an individual run, on the week, or on the home page. A week is short enough to read from the figures, and a note on every screen turned generated prose into furniture rather than something you stop and read. The endpoints for the shorter notes still exist; nothing calls them.
+
+Reports use a prompt with a longer budget than a short note would, because a review has a comparison to make and cutting it off mid-sentence is worse than the extra seconds.
 
 ---
 
