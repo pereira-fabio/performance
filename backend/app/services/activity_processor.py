@@ -74,6 +74,24 @@ def to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
     return dt
 
 
+# What to call a session the device did not name.
+_SPORT_NAMES = {
+    "running": "Run",
+    "treadmill": "Treadmill run",
+    "walking": "Walk",
+    "hiking": "Hike",
+    "cycling": "Ride",
+    "swimming": "Swim",
+    "rowing": "Row",
+    "gym": "Gym session",
+    "strength": "Strength session",
+}
+
+
+def _default_name(sport_type: Optional[str]) -> str:
+    return _SPORT_NAMES.get((sport_type or "").lower(), "Activity")
+
+
 def _clean(value) -> Optional[float]:
     """NaN and infinities are absences, not numbers."""
     if value is None:
@@ -492,7 +510,10 @@ class ActivityProcessor:
                 self.db.delete(existing.streams)
             self.db.flush()
 
-        activity.name = payload.title or "Running Session"
+        # Name it after what it actually was. Calling a gym session a
+        # "Running Session" is the kind of small wrongness that makes the rest
+        # of the numbers harder to trust.
+        activity.name = payload.title or _default_name(activity.sport_type)
         activity.sport_type = payload.sport_type or "running"
         activity.start_time = start_time
         activity.end_time = end_time

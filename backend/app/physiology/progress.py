@@ -50,6 +50,21 @@ def level_for_xp(total_xp: int) -> Dict[str, int]:
     }
 
 
+def format_time(seconds: float) -> str:
+    """
+    A duration as a runner reads it.
+
+    Anything past an hour needs the hour: a 10k best of 69:20 is really
+    1:09:20, and the minute form silently misreads as an impossible time.
+    """
+    total = int(round(seconds))
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 @dataclass
 class Achievement:
     key: str
@@ -118,10 +133,10 @@ def evaluate_achievements(
         if best:
             out.append(Achievement(
                 key=f"{label}_{target_sec}", name=name,
-                detail=f"Best {label}: {int(best // 60)}:{int(best % 60):02d}",
+                detail=f"Best {label}: {format_time(best)}",
                 earned=best <= target_sec,
                 progress=min(target_sec / best, 1.0),
-                value=f"{int(best // 60)}:{int(best % 60):02d}",
+                value=format_time(best),
             ))
     return out
 

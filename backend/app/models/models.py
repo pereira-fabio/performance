@@ -95,7 +95,7 @@ class Activity(Base):
     # Unique per athlete, not globally: two people can sync the same shared
     # workout, and one must not overwrite the other's copy.
     external_id = Column(String(128), index=True, nullable=True)
-    name = Column(String(255), nullable=False, default="Running Session")
+    name = Column(String(255), nullable=False, default="Activity")
     sport_type = Column(String(64), default="running")
     
     # Timing

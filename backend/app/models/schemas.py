@@ -25,7 +25,9 @@ class CadenceSample(BaseModel):
 # Health Connect Ingestion Payload
 class HealthConnectSessionPayload(BaseModel):
     session_id: str
-    title: Optional[str] = "Running Session"
+    # None rather than a default: a default here is filled in before the
+    # processor can choose a name that suits the sport.
+    title: Optional[str] = None
     sport_type: Optional[str] = "running"
     start_time: datetime
     end_time: datetime
