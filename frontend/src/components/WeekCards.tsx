@@ -160,24 +160,39 @@ export const ThisWeekCard: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
               </div>
 
               {/* Seven slots, always. The empty ones are the point: a rest day
-                  missing from the row would read as a week you never had. */}
-              <div className="mt-4 flex items-end gap-1.5 h-12">
+                  missing from the row would read as a week you never had.
+                  Each day carries its own distance, because a bar says which
+                  day was biggest and nothing about how big it was. */}
+              <div className="mt-4 flex gap-1.5">
                 {days.map((day) => {
-                  const height = day.km ? Math.max(12, ((day.km ?? 0) / peak) * 100) : 4;
+                  const height = day.km ? Math.max(14, ((day.km ?? 0) / peak) * 100) : 0;
                   const isToday = day.date === today;
                   const future = day.date > today;
                   return (
-                    <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                      <div className="w-full rounded-sm transition-all"
-                           style={{
-                             height: `${height}%`,
-                             background: day.km ? 'var(--run)'
-                                       : future ? 'var(--line)' : 'var(--line-strong)',
-                             opacity: future ? 0.5 : 1,
-                           }} />
-                      <span className={`text-2xs ${isToday ? 'font-bold text-accent' : 'text-faint'}`}>
+                    <div key={day.date} className="flex-1 min-w-0"
+                         title={day.km
+                           ? `${day.label} ${day.km.toFixed(2)} km, ${duration(day.moving_sec)}`
+                           : `${day.label}: rest`}>
+                      {/* The track has a definite height so the bar's own
+                          percentage has something to resolve against. Sized by
+                          its parent, it collapsed to nothing and the row read
+                          as seven empty days. */}
+                      <div className="h-12 flex items-end rounded-sm bg-surface overflow-hidden">
+                        <div className="w-full rounded-sm transition-all"
+                             style={{
+                               height: `${height}%`,
+                               background: day.km ? 'var(--run)' : 'transparent',
+                               opacity: future ? 0.45 : 1,
+                             }} />
+                      </div>
+                      <div className={`mt-1 text-center text-2xs tnum truncate ${
+                        day.km ? 'text-fg font-semibold' : 'text-faint'}`}>
+                        {day.km ? day.km.toFixed(1) : '–'}
+                      </div>
+                      <div className={`text-center text-2xs ${
+                        isToday ? 'font-bold text-accent' : 'text-faint'}`}>
                         {day.label[0]}
-                      </span>
+                      </div>
                     </div>
                   );
                 })}
