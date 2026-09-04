@@ -43,9 +43,8 @@ type Kind = 'month' | 'year';
 
 export const StatsView: React.FC<{
   data: HomeData | null;
-  onBack: () => void;
   onSelectActivity?: (id: string) => void;
-}> = ({ data, onBack, onSelectActivity }) => {
+}> = ({ data, onSelectActivity }) => {
   const [kind, setKind] = useState<Kind>('month');
   const [periods, setPeriods] = useState<ReportPeriodOption[]>([]);
   const [selected, setSelected] = useState<string>('');
@@ -108,10 +107,7 @@ export const StatsView: React.FC<{
 
   if (!data || data.empty) {
     return (
-      <>
-        <button onClick={onBack} className="text-sm text-muted hover:text-fg mb-4">← Back</button>
-        <Empty>Nothing recorded yet. Sync some activities and this fills in.</Empty>
-      </>
+      <Empty>Nothing recorded yet. Sync some activities and this fills in.</Empty>
     );
   }
 
@@ -119,9 +115,6 @@ export const StatsView: React.FC<{
 
   return (
     <>
-      <button onClick={onBack}
-              className="text-sm text-muted hover:text-fg transition mb-5">← Back</button>
-
       <h1 className="text-2xl font-bold tracking-tight text-fg-strong">Stats</h1>
       <p className="mt-0.5 mb-5 text-sm text-muted">
         Everything since you started, and a report on any month or year.

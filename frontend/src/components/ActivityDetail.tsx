@@ -31,8 +31,6 @@ const PACE_ZONE_NAMES = ['Recovery', 'Endurance', 'Tempo', 'Threshold',
 
 interface Props {
   activity: Activity;
-  onBack: () => void;
-  onDelete: (id: string) => void;
 }
 
 /**
@@ -436,7 +434,7 @@ const SplitBars: React.FC<{ splits: Split[]; color: string }> = ({ splits, color
   );
 };
 
-export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) => {
+export const ActivityDetail: React.FC<Props> = ({ activity }) => {
   const bucket = bucketOf(activity);
   const showPace = SPORTS[bucket].hasPace;
   const points: StreamPoint[] = activity.stream_data?.points ?? [];
@@ -484,12 +482,6 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={onBack} className="text-[13px] text-muted hover:text-fg transition">← Back</button>
-        <button onClick={() => { if (confirm('Delete this activity?')) onDelete(activity.id); }}
-                className="text-2xs text-faint hover:text-negative transition">Delete</button>
-      </div>
-
       <div className="flex items-baseline gap-2 mb-1">
         <span className="h-2 w-2 rounded-full" style={{ background: SPORTS[bucket].color }} />
         <h2 className="text-xl font-semibold tracking-tight text-fg-strong">{activity.name}</h2>

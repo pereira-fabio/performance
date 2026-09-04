@@ -314,11 +314,10 @@ export const ReportBody: React.FC<{
 
 export const PeriodRecap: React.FC<{
   kind: 'week' | 'month' | 'year';
-  onBack: () => void;
   onSelectActivity?: (id: string) => void;
   /** Open a particular period. Omitted means the last one that finished. */
   initialKey?: string;
-}> = ({ kind, onBack, onSelectActivity, initialKey }) => {
+}> = ({ kind, onSelectActivity, initialKey }) => {
   // Identified by key rather than by how many steps back it is: a calendar
   // jumps straight to a week, and counting arrow-presses to reach March is
   // exactly what this replaced.
@@ -367,10 +366,7 @@ export const PeriodRecap: React.FC<{
   }
   if (error && !report) {
     return (
-      <>
-        <button onClick={onBack} className="text-sm text-muted hover:text-fg mb-4">← Back</button>
-        <Empty>{error}</Empty>
-      </>
+      <Empty>{error}</Empty>
     );
   }
   if (!report) return null;
@@ -381,9 +377,7 @@ export const PeriodRecap: React.FC<{
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <button onClick={onBack}
-                className="text-sm text-muted hover:text-fg transition shrink-0">← Back</button>
+      <div className="flex items-center justify-end gap-3 mb-5">
         <div className="flex items-center gap-1.5">
           {/* The chevrons stay for the common case of nudging one week either
               way; the calendar is for everything further than that. */}

@@ -20,6 +20,24 @@ import {
 import { loadSession } from './lib/auth';
 import { describeError } from './lib/errors';
 
+/**
+ * Back out of a sub-view.
+ *
+ * Declared here rather than inside App: a component defined in a render body is
+ * a new type on every render, so React tears it down and rebuilds it each time
+ * instead of updating it.
+ */
+const Back: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+  <button onClick={onClick}
+          className="flex items-center gap-1.5 text-[13px] text-muted hover:text-fg transition">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5" /><path d="M12 19l-7-7 7-7" />
+    </svg>
+    {label}
+  </button>
+);
+
 export const App: React.FC = () => {
   const [tab, setTab] = useState<TabKey>('home');
   const [selected, setSelected] = useState<Activity | null>(null);
@@ -170,35 +188,46 @@ export const App: React.FC = () => {
    * and the menu only appeared once you had gone back.
    */
   let content: React.ReactNode;
+  let toolbar: React.ReactNode = null;
   let onTabChange: (t: TabKey) => void = setTab;
 
   if (selected) {
-    content = (
-      <ActivityDetail activity={selected}
-                      onBack={() => { returnScroll.current = backTo.current; setSelected(null); }}
-                      onDelete={removeActivity} />
+    content = <ActivityDetail activity={selected} />;
+    toolbar = (
+      <>
+        <Back label="Back"
+              onClick={() => { returnScroll.current = backTo.current; setSelected(null); }} />
+        <button onClick={() => { if (confirm('Delete this activity?')) removeActivity(selected.id); }}
+                className="text-2xs text-faint hover:text-negative transition">Delete</button>
+      </>
     );
     onTabChange = (t) => { setSelected(null); setTab(t); };
   } else if (statsOpen) {
     content = (
       <StatsView data={home}
-                 onBack={() => { returnScroll.current = backTo.current; setStatsOpen(false); }}
                  onSelectActivity={(id) => {
                    const found = activities.find((a) => a.id === id);
                    if (found) { setStatsOpen(false); openActivity(found, 0); }
                  }} />
     );
+    toolbar = (
+      <Back label="Back"
+            onClick={() => { returnScroll.current = backTo.current; setStatsOpen(false); }} />
+    );
     onTabChange = (t) => { setStatsOpen(false); setTab(t); };
   } else if (recap) {
     content = (
       <PeriodRecap kind={recap} initialKey={recapKey}
-                   onBack={() => { returnScroll.current = backTo.current; setRecap(null); }}
                    onSelectActivity={(id) => {
                      const found = activities.find((a) => a.id === id);
                      // Back from here lands on the list, which this reader
                      // never scrolled, so it starts at the top.
                      if (found) { setRecap(null); openActivity(found, 0); }
                    }} />
+    );
+    toolbar = (
+      <Back label="Back"
+            onClick={() => { returnScroll.current = backTo.current; setRecap(null); }} />
     );
     onTabChange = (t) => { setRecap(null); setTab(t); };
   } else {
@@ -233,7 +262,7 @@ export const App: React.FC = () => {
   return (
     <>
       <Shell tab={tab} onTab={onTabChange} counts={counts}
-             onMenu={() => setMenuOpen(true)}
+             onMenu={() => setMenuOpen(true)} toolbar={toolbar}
              onRefresh={load} refreshing={refreshing}>
         {content}
       </Shell>

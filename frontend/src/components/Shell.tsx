@@ -24,11 +24,21 @@ interface ShellProps {
   onMenu: () => void;
   onRefresh: () => void;
   refreshing: boolean;
+  /**
+   * Controls belonging to a sub-view — Back, and whatever sits beside it.
+   *
+   * Rendered inside the sticky header rather than at the top of the page, so
+   * leaving a long activity does not mean scrolling back up to find the way
+   * out. Passed in rather than measured: sticking a row underneath the header
+   * would need its exact height, which is a number that goes stale the moment
+   * anything in the header changes.
+   */
+  toolbar?: React.ReactNode;
   children: React.ReactNode;
 }
 
 export const Shell: React.FC<ShellProps> = ({
-  tab, onTab, counts, onMenu, onRefresh, refreshing, children,
+  tab, onTab, counts, onMenu, onRefresh, refreshing, toolbar, children,
 }) => (
   <div className="min-h-screen bg-bg text-fg">
     <header className="sticky top-0 z-20 bg-bg/95 backdrop-blur border-b border-line">
@@ -79,6 +89,12 @@ export const Shell: React.FC<ShellProps> = ({
             );
           })}
         </nav>
+
+        {toolbar && (
+          <div className="flex items-center justify-between gap-3 py-2 border-t border-line">
+            {toolbar}
+          </div>
+        )}
       </div>
     </header>
 
