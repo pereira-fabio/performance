@@ -58,6 +58,8 @@ def _client(user_id: str):
     import garminconnect
 
     api = garminconnect.Garmin()
+    # With no credentials this restores the stored session; it raises if the
+    # tokens are gone or no longer accepted.
     api.login(tokenstore=token_dir(user_id))
     return api
 
@@ -77,16 +79,17 @@ def connect(user_id: str, email: str, password: str,
 
     try:
         if mfa_code:
-            api = garminconnect.Garmin(email, password, return_on_mfa=True)
-            result, state = api.login()
-            if result == "needs_mfa":
-                api.resume_login(state, mfa_code)
+            # Supplying the code through the callback lets the library finish
+            # the login in one pass, and it persists the tokens itself. The
+            # early-return route hands back a status, not the client state that
+            # resume_login needs, so there is nothing to resume from.
+            api = garminconnect.Garmin(email, password, prompt_mfa=lambda: mfa_code)
+            api.login(tokenstore=path)
         else:
             api = garminconnect.Garmin(email, password, return_on_mfa=True)
-            result, state = api.login()
-            if result == "needs_mfa":
-                return False, "This account has two-factor authentication; enter the code."
-        api.garth.dump(path)
+            status, _ = api.login(tokenstore=path)
+            if status == "needs_mfa":
+                return False, "This account uses two-factor authentication; enter the code."
         return True, "Connected."
     except garminconnect.GarminConnectTooManyRequestsError:
         return False, ("Garmin is rate-limiting requests from this server. "
@@ -101,6 +104,12 @@ def connect(user_id: str, email: str, password: str,
                            "Wait a few minutes and try again.")
         if "mfa" in detail or "code" in detail:
             return False, "This account needs a two-factor code."
+        # The underlying reason is carried through: this exception covers
+        # several situations, and without the detail a rate limit or a changed
+        # login page is indistinguishable from a wrong password.
+        detail = str(exc).strip()
+        if detail and detail.lower() not in ("", "none"):
+            return False, f"Garmin did not accept the sign-in ({detail[:160]})."
         return False, "Garmin did not accept that email and password."
     except garminconnect.GarminConnectConnectionError as exc:
         return False, f"Could not reach Garmin Connect: {exc}"
