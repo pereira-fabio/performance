@@ -161,55 +161,49 @@ export const App: React.FC = () => {
     return <LoginScreen onSignedIn={() => setSession(loadSession())} />;
   }
 
-  if (selected) {
-    return (
-      <Shell tab={tab} onTab={(t) => { setSelected(null); setTab(t); }} counts={counts}
-             onMenu={() => setMenuOpen(true)}
-             onRefresh={load} refreshing={refreshing}>
-        <ActivityDetail activity={selected}
-                        onBack={() => { returnScroll.current = backTo.current; setSelected(null); }}
-                        onDelete={removeActivity} />
-      </Shell>
-    );
-  }
+  /**
+   * One page at a time, but only one place that renders the frame.
+   *
+   * Each view used to return its own <Shell> and stop there, which left
+   * the menu and every modal behind in the final return: from Stats, an
+   * activity or a recap the hamburger set state that nothing was rendering,
+   * and the menu only appeared once you had gone back.
+   */
+  let content: React.ReactNode;
+  let onTabChange: (t: TabKey) => void = setTab;
 
-  if (statsOpen) {
-    return (
-      <Shell tab={tab} onTab={(t) => { setStatsOpen(false); setTab(t); }} counts={counts}
-             onMenu={() => setMenuOpen(true)}
-             onRefresh={load} refreshing={refreshing}>
-        <StatsView data={home}
-                   onBack={() => { returnScroll.current = backTo.current; setStatsOpen(false); }}
+  if (selected) {
+    content = (
+      <ActivityDetail activity={selected}
+                      onBack={() => { returnScroll.current = backTo.current; setSelected(null); }}
+                      onDelete={removeActivity} />
+    );
+    onTabChange = (t) => { setSelected(null); setTab(t); };
+  } else if (statsOpen) {
+    content = (
+      <StatsView data={home}
+                 onBack={() => { returnScroll.current = backTo.current; setStatsOpen(false); }}
+                 onSelectActivity={(id) => {
+                   const found = activities.find((a) => a.id === id);
+                   if (found) { setStatsOpen(false); openActivity(found, 0); }
+                 }} />
+    );
+    onTabChange = (t) => { setStatsOpen(false); setTab(t); };
+  } else if (recap) {
+    content = (
+      <PeriodRecap kind={recap} initialKey={recapKey}
+                   onBack={() => { returnScroll.current = backTo.current; setRecap(null); }}
                    onSelectActivity={(id) => {
                      const found = activities.find((a) => a.id === id);
-                     if (found) { setStatsOpen(false); openActivity(found, 0); }
+                     // Back from here lands on the list, which this reader
+                     // never scrolled, so it starts at the top.
+                     if (found) { setRecap(null); openActivity(found, 0); }
                    }} />
-      </Shell>
     );
-  }
-
-  if (recap) {
-    return (
-      <Shell tab={tab} onTab={(t) => { setRecap(null); setTab(t); }} counts={counts}
-             onMenu={() => setMenuOpen(true)}
-             onRefresh={load} refreshing={refreshing}>
-        <PeriodRecap kind={recap} initialKey={recapKey}
-                     onBack={() => { returnScroll.current = backTo.current; setRecap(null); }}
-                     onSelectActivity={(id) => {
-                       const found = activities.find((a) => a.id === id);
-                       // Back from here lands on the list, which this reader
-                       // never scrolled, so it starts at the top.
-                       if (found) { setRecap(null); openActivity(found, 0); }
-                     }} />
-      </Shell>
-    );
-  }
-
-  return (
-    <>
-      <Shell tab={tab} onTab={setTab} counts={counts}
-             onMenu={() => setMenuOpen(true)}
-             onRefresh={load} refreshing={refreshing}>
+    onTabChange = (t) => { setRecap(null); setTab(t); };
+  } else {
+    content = (
+      <>
         {error && (
           <div className="mb-6 py-3 px-4 text-[13px] text-negative border border-line rounded-lg bg-surface">
             {error}
@@ -232,6 +226,16 @@ export const App: React.FC = () => {
           <SportView tab={tab} activities={byTab[tab]} summary={summary}
                      pmc={pmc} records={records} onSelect={openActivity} />
         )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Shell tab={tab} onTab={onTabChange} counts={counts}
+             onMenu={() => setMenuOpen(true)}
+             onRefresh={load} refreshing={refreshing}>
+        {content}
       </Shell>
 
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} athlete={athlete}

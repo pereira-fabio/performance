@@ -30,9 +30,23 @@ from backend.app.services.file_import import normalise_sport, parse_any
 # Where garth keeps its session tokens, one directory per athlete.
 TOKEN_ROOT = os.getenv("CONNECTION_TOKEN_DIR", "/data/connections")
 
-# How far back a first sync reaches. Garmin holds years; pulling all of it on
-# the first run would take a long time and hammer their servers.
-INITIAL_LOOKBACK_DAYS = int(os.getenv("GARMIN_INITIAL_DAYS", "365"))
+# How far back a first sync reaches, in days. Zero means the whole account,
+# which is the default: an athlete linking their watch expects their history,
+# not the part of it that happens to fall inside a year.
+#
+# It is not fetched in one go. A run imports at most GARMIN_BATCH activities,
+# oldest first, and records how far it got, so a long history arrives over
+# successive polls instead of one enormous request that trips a rate limit and
+# leaves nothing behind.
+INITIAL_LOOKBACK_DAYS = int(os.getenv("GARMIN_INITIAL_DAYS", "0"))
+
+# The earliest date worth asking about. Garmin Connect did not exist before it,
+# and an open-ended query still has to name a start.
+EPOCH = date(2000, 1, 1)
+
+# Activities downloaded per run. Each one is a separate request for its TCX, so
+# this is the knob that decides how hard a backfill leans on Garmin.
+BATCH = int(os.getenv("GARMIN_BATCH", "150"))
 
 # Re-fetch a little before the last sync, since an activity can be uploaded
 # from the watch well after it was recorded.
@@ -47,6 +61,13 @@ class SyncOutcome:
     found: int = 0
     message: str = ""
     needs_reauth: bool = False
+    # False when the batch limit stopped the run before the end of the listing.
+    # The caller must not then mark the account as synced up to now, or
+    # everything still queued behind the cut would be skipped forever.
+    complete: bool = True
+    # The start time of the newest activity actually dealt with, which is where
+    # the next run resumes from.
+    reached: Optional[datetime] = None
 
 
 def token_dir(user_id: str) -> str:
@@ -151,14 +172,32 @@ def _payloads_from_download(raw: bytes, activity_id: str, fmt: str) -> List[Heal
     return sessions
 
 
+def _started_at(entry: dict) -> Optional[datetime]:
+    """When an activity began, from whichever field the listing carries."""
+    for key in ("startTimeGMT", "startTimeLocal"):
+        raw = entry.get(key)
+        if not raw:
+            continue
+        try:
+            return datetime.fromisoformat(str(raw).replace("Z", "").strip())
+        except ValueError:
+            continue
+    return None
+
+
 def fetch_since(
     user_id: str,
     since: Optional[datetime],
     process: Callable[[HealthConnectSessionPayload], None],
-    limit: int = 200,
+    limit: int = BATCH,
 ) -> SyncOutcome:
     """
-    Import activities recorded since a date.
+    Import activities recorded since a date, oldest first.
+
+    Oldest first so a partial run is resumable: whatever it reaches, everything
+    before that point is now stored, and the caller can record how far it got.
+    Newest first would import the recent end and leave a hole behind it that no
+    later run would ever look in.
 
     Each activity is handled independently: one that fails to download or parse
     is counted and passed over rather than abandoning the rest of the sync.
@@ -173,8 +212,14 @@ def fetch_since(
             message=f"Garmin session is no longer valid, sign in again ({exc}).",
         )
 
-    start = (since - timedelta(days=OVERLAP_DAYS)).date() if since \
-        else date.today() - timedelta(days=INITIAL_LOOKBACK_DAYS)
+    if since:
+        start = (since - timedelta(days=OVERLAP_DAYS)).date()
+    elif INITIAL_LOOKBACK_DAYS > 0:
+        start = date.today() - timedelta(days=INITIAL_LOOKBACK_DAYS)
+    else:
+        # The whole account. The library pages the listing itself, so this is
+        # one call however many years it covers; only the downloads are batched.
+        start = EPOCH
 
     try:
         listing = api.get_activities_by_date(start.isoformat(), date.today().isoformat())
@@ -183,8 +228,21 @@ def fetch_since(
     except Exception as exc:
         return SyncOutcome(ok=False, message=f"Could not list activities: {exc}")
 
+    entries = list(listing or [])
+    # Garmin returns newest first. Sorting the other way makes the batch below
+    # a prefix of the history rather than a window floating in the middle of it.
+    # Entries with no readable date go last so they cannot claim to be oldest.
+    entries.sort(key=lambda e: _started_at(e) or datetime.max)
+
+    batch = entries[:limit]
+    complete = len(batch) == len(entries)
+    reached: Optional[datetime] = None
+
     imported = skipped = 0
-    for entry in (listing or [])[:limit]:
+    for entry in batch:
+        started = _started_at(entry)
+        if started and (reached is None or started > reached):
+            reached = started
         activity_id = str(entry.get("activityId") or "")
         if not activity_id:
             continue
@@ -212,8 +270,16 @@ def fetch_since(
             skipped += 1
             continue
 
+    remaining = len(entries) - len(batch)
+    message = (f"Imported {imported} activity(ies)"
+               + (f", skipped {skipped}" if skipped else ""))
+    if remaining:
+        # Oldest first, so what is left is the more recent end of the history.
+        message += (f". {remaining} more to import — the next sync continues "
+                    f"from here")
+    message += "."
+
     return SyncOutcome(
-        ok=True, imported=imported, skipped=skipped, found=len(listing or []),
-        message=f"Imported {imported} activity(ies)"
-                + (f", skipped {skipped}" if skipped else "") + ".",
+        ok=True, imported=imported, skipped=skipped, found=len(entries),
+        message=message, complete=complete, reached=reached,
     )

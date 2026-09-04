@@ -102,7 +102,8 @@ Everything is environment variables in `docker-compose.yml`. None are required t
 | `AVATAR_DIR` | `$DATA_DIR/avatars` | Profile pictures |
 | `OLLAMA_URL` | *empty* | Your language model. Empty turns the coach off entirely |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Which model to ask |
-| `GARMIN_INITIAL_DAYS` | `365` | How far back the first Garmin sync reaches |
+| `GARMIN_INITIAL_DAYS` | `0` | How far back the first Garmin sync reaches, in days. `0` means the whole account |
+| `GARMIN_BATCH` | `150` | Activities downloaded per sync run. A longer history arrives over successive polls |
 
 `OLLAMA_URL` ships pointing at the address this instance uses. **Change it to your own, or empty it.** An unreachable model costs nothing but a timeout — the coach fails softly and no training data depends on it.
 

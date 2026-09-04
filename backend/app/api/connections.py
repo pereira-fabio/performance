@@ -129,7 +129,16 @@ def run_sync(db: Session, user: User, row: DeviceConnection):
     row.last_ok = outcome.ok
     row.last_status = outcome.message
     if outcome.ok:
-        row.last_synced_at = datetime.utcnow()
+        # Only claim to be up to date when the whole listing was worked
+        # through. A batch that stopped early has history behind it, and
+        # stamping "synced to now" would step over everything still queued and
+        # never come back for it. Recording where it reached lets the next poll
+        # carry on from there; the overlap the connector applies means the
+        # boundary activity is simply re-offered and rejected as a duplicate.
+        row.last_synced_at = (
+            datetime.utcnow() if outcome.complete
+            else (outcome.reached or row.last_synced_at)
+        )
     if outcome.needs_reauth:
         row.enabled = False
     db.commit()

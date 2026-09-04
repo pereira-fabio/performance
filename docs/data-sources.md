@@ -57,7 +57,15 @@ Skipped 7 duplicate sessions written back by another app
 
 For an athlete with a Garmin watch and no Health Connect — an iPhone, typically — the watch platform is polled for them.
 
-**Settings → Automatic sync**, enter Garmin credentials, and the scheduler checks every 30 minutes. The first sync reaches back a year (`GARMIN_INITIAL_DAYS`); later ones re-check the last few days, because an activity can be uploaded from the watch long after it was recorded.
+**Settings → Automatic sync**, enter Garmin credentials, and the scheduler checks every 30 minutes.
+
+**The first sync imports the whole account**, not a recent slice of it. It does not do so in one request: each run downloads at most `GARMIN_BATCH` activities (150 by default), **oldest first**, and records how far it reached, so a long history arrives over successive polls. A run that stops early does not mark the account as up to date — doing so would step over everything still queued and never come back for it.
+
+Oldest first matters: a partial run then leaves a complete history behind it. Newest first would import the recent end and leave a hole that no later run would look in.
+
+Later syncs re-check the last few days, because an activity can be uploaded from the watch long after it was recorded. The overlap re-offers a handful of activities the server already has, which are rejected as duplicates.
+
+Set `GARMIN_INITIAL_DAYS` to a positive number to limit the first sync to that many days instead.
 
 ### How it works, and the honest caveat
 
