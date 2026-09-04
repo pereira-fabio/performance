@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, StreamPoint, Split } from '../types';
-import { MapContainer, TileLayer, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip as MapTooltip } from 'react-leaflet';
 import {
   ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
@@ -13,20 +13,97 @@ const TE_LABEL = (te?: number) =>
     : te < 3.5 ? 'Improving' : te < 4.5 ? 'Highly improving' : 'Overreaching';
 
 /**
- * Heart-rate zones, coloured as a progression rather than as one colour at
- * five opacities. A faded tint of the sport colour was almost invisible
- * against the card, which defeats the point of a chart.
+ * Zones, coloured as a progression rather than as one colour at several
+ * opacities. A faded tint of the sport colour was almost invisible against the
+ * card, which defeats the point of a chart.
+ *
+ * Six entries because pace has six zones where heart rate has five. Both run
+ * easiest to hardest, so the same ramp reads correctly for either.
  */
 const ZONE_COLORS = ['var(--walk)', 'var(--positive)', 'var(--caution)',
-                     'var(--accent)', 'var(--negative)'];
+                     'var(--accent)', 'var(--negative)', 'var(--gym)'];
 
-const ZONE_NAMES = ['Recovery', 'Aerobic', 'Tempo', 'Threshold', 'Maximum'];
+const HR_ZONE_NAMES = ['Recovery', 'Aerobic', 'Tempo', 'Threshold', 'Maximum'];
+
+// Pace zones are defined against threshold pace, so they carry the names that
+// go with it rather than the heart-rate ones.
+const PACE_ZONE_NAMES = ['Recovery', 'Endurance', 'Tempo', 'Threshold',
+                         'VO\u2082 max', 'Anaerobic'];
 
 interface Props {
   activity: Activity;
   onBack: () => void;
   onDelete: (id: string) => void;
 }
+
+/**
+ * The route, drawn from start to finish.
+ *
+ * The whole line is laid down faintly first so the shape and the map bounds
+ * are right immediately, and the bright trace is drawn over it -- a blank map
+ * that fills in slowly is worse than a map you can read at once.
+ *
+ * Timed rather than stepped per point, so a 400-point walk and a 2000-point
+ * marathon take the same couple of seconds. Anyone who has asked their system
+ * for less motion gets the finished line and no animation at all.
+ */
+const AnimatedRoute: React.FC<{
+  route: [number, number][];
+  color: string;
+  activityId: string;
+}> = ({ route, color, activityId }) => {
+  const [drawn, setDrawn] = useState(route.length);
+
+  useEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || route.length < 3) {
+      setDrawn(route.length);
+      return;
+    }
+    setDrawn(0);
+    let frame = 0;
+    const started = performance.now();
+    const DURATION = 1800;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - started) / DURATION);
+      // Eased out, so the pen arrives rather than stopping dead.
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDrawn(Math.max(2, Math.round(eased * route.length)));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [activityId, route.length]);
+
+  const done = drawn >= route.length;
+  const start = route[0];
+  const finish = route[route.length - 1];
+
+  return (
+    <>
+      <Polyline positions={route}
+                pathOptions={{ color, weight: 4, opacity: 0.18 }} />
+      <Polyline positions={route.slice(0, drawn)}
+                pathOptions={{ color, weight: 4, lineCap: 'round', lineJoin: 'round' }} />
+
+      <CircleMarker center={start} radius={6}
+                    pathOptions={{ color: '#fff', weight: 2.5,
+                                   fillColor: 'var(--positive)', fillOpacity: 1 }}>
+        <MapTooltip direction="top">Start</MapTooltip>
+      </CircleMarker>
+
+      {/* The finish appears when the line reaches it, so the marker means
+          "here" rather than sitting there through the whole animation. */}
+      {done && (
+        <CircleMarker center={finish} radius={6}
+                      pathOptions={{ color: '#fff', weight: 2.5,
+                                     fillColor: 'var(--negative)', fillOpacity: 1 }}>
+          <MapTooltip direction="top">Finish</MapTooltip>
+        </CircleMarker>
+      )}
+    </>
+  );
+};
 
 /** A dash the reader can interrogate: hovering says why the figure is absent. */
 const Missing: React.FC<{ reason?: string }> = ({ reason }) => (
@@ -207,16 +284,23 @@ const MetricChart: React.FC<{
 };
 
 /** Zones stacked one per row, so the shortest is still legible. */
-const ZoneBars: React.FC<{ zones: [string, number][]; total: number }> = ({ zones, total }) => (
+const ZoneBars: React.FC<{
+  zones: [string, number][]; total: number; names: string[];
+}> = ({ zones, total, names }) => (
   <div className="space-y-2.5">
-    {zones.map(([zone, seconds], i) => {
+    {zones.map(([zone, seconds]) => {
       const share = total > 0 ? (seconds / total) * 100 : 0;
-      const color = ZONE_COLORS[i] ?? ZONE_COLORS[ZONE_COLORS.length - 1];
+      // Indexed by the zone's own number, never by its position in the list.
+      // Zones with no time are dropped, so a hard session with nothing in Z1
+      // would otherwise paint Z2 in the recovery colour and shift every label
+      // up with it.
+      const index = (parseInt(zone.replace(/\D/g, ''), 10) || 1) - 1;
+      const color = ZONE_COLORS[index] ?? ZONE_COLORS[ZONE_COLORS.length - 1];
       return (
         <div key={zone} className="flex items-center gap-3">
           <div className="w-20 shrink-0">
             <div className="text-xs font-semibold text-fg-strong">{zone.toUpperCase()}</div>
-            <div className="text-2xs text-faint">{ZONE_NAMES[i] ?? ''}</div>
+            <div className="text-2xs text-faint">{names[index] ?? ''}</div>
           </div>
           <div className="flex-1 h-6 rounded bg-surface overflow-hidden">
             <div className="h-full rounded transition-all"
@@ -231,6 +315,61 @@ const ZoneBars: React.FC<{ zones: [string, number][]; total: number }> = ({ zone
     })}
   </div>
 );
+
+type ZoneKind = 'hr' | 'pace';
+
+/**
+ * Time in zones, by heart rate or by pace.
+ *
+ * The same session read two ways: heart rate says what it cost, pace says what
+ * was asked of the legs. They disagree usefully -- a hilly run sits high in the
+ * heart-rate zones and low in the pace ones -- so they are one section with a
+ * switch rather than two sections nobody compares.
+ */
+const ZoneSection: React.FC<{
+  hr: [string, number][];
+  paceZones: [string, number][];
+}> = ({ hr, paceZones }) => {
+  const [kind, setKind] = useState<ZoneKind>(hr.length ? 'hr' : 'pace');
+  const active: ZoneKind = kind === 'hr' && !hr.length ? 'pace'
+                         : kind === 'pace' && !paceZones.length ? 'hr' : kind;
+
+  const zones = active === 'hr' ? hr : paceZones;
+  if (!zones.length) return null;
+  const total = zones.reduce((sum, [, v]) => sum + v, 0);
+
+  return (
+    <Section
+      title="Time in zones"
+      aside={
+        <div className="flex items-center gap-3">
+          {hr.length > 0 && paceZones.length > 0 && (
+            <div className="flex gap-1 p-0.5 rounded-lg bg-surface border border-line">
+              {([['hr', 'Heart rate'], ['pace', 'Pace']] as [ZoneKind, string][]).map(
+                ([value, label]) => (
+                  <button key={value} onClick={() => setKind(value)}
+                    className={`px-2.5 py-1 rounded-md text-2xs font-semibold transition ${
+                      active === value ? 'bg-card text-fg-strong shadow-card'
+                                       : 'text-muted hover:text-fg'}`}>
+                    {label}
+                  </button>
+                )
+              )}
+            </div>
+          )}
+          <span className="text-2xs text-faint tnum">{duration(total)}</span>
+        </div>
+      }>
+      <ZoneBars zones={zones} total={total}
+                names={active === 'hr' ? HR_ZONE_NAMES : PACE_ZONE_NAMES} />
+      <p className="mt-4 pt-3 border-t border-line text-2xs text-faint">
+        {active === 'hr'
+          ? 'From your maximum, resting and threshold heart rates. Totals cover measured time, not elapsed time.'
+          : 'From your threshold pace. A climb shows here as an easy zone and in the heart-rate zones as a hard one, which is the hill rather than a contradiction.'}
+      </p>
+    </Section>
+  );
+};
 
 /**
  * Splits as bars.
@@ -248,14 +387,14 @@ const SplitBars: React.FC<{ splits: Split[]; color: string }> = ({ splits, color
         // Scaled against the quickest split, with a floor so the slowest
         // kilometre of a long run is still a bar and not a sliver.
         const width = 30 + (quickest / s.pace_sec_km) * 70;
-        const isQuickest = s.pace_sec_km === quickest && splits.length > 1;
         return (
           <div key={s.split_number} className="flex items-center gap-3 text-[13px] tnum">
             <span className="w-5 shrink-0 text-2xs text-faint text-right">{s.split_number}</span>
             <div className="flex-1 h-7 rounded bg-surface overflow-hidden relative">
+              {/* One colour throughout. Length already says which split was
+                  quickest; shading it as well said the same thing twice. */}
               <div className="h-full rounded flex items-center px-2"
-                   style={{ width: `${width}%`, background: color,
-                            opacity: isQuickest ? 1 : 0.55 }}>
+                   style={{ width: `${width}%`, background: color }}>
                 <span className="text-2xs font-semibold text-white drop-shadow">
                   {pace(s.pace_sec_km)}
                 </span>
@@ -308,10 +447,16 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
     }));
   }, [points]);
 
-  const zones = activity.hr_zone_seconds
-    ? Object.entries(activity.hr_zone_seconds).filter(([, v]) => v > 0)
-    : [];
-  const zoneTotal = zones.reduce((s, [, v]) => s + v, 0);
+  // Sorted by zone key so z10 could never sort before z2, and so the colour
+  // ramp always lines up with the order the zones are defined in.
+  const asZones = (source?: Record<string, number> | null): [string, number][] =>
+    source
+      ? (Object.entries(source) as [string, number][])
+          .filter(([, v]) => v > 0)
+          .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+      : [];
+  const hrZones = asZones(activity.hr_zone_seconds);
+  const paceZones = showPace ? asZones(activity.pace_zone_seconds) : [];
   const splits = (activity.splits ?? []).filter((s) => !s.is_partial);
   const fastestSplit = splits.length
     ? splits.reduce((best, s) => (s.pace_sec_km < best.pace_sec_km ? s : best))
@@ -368,7 +513,8 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
                           style={{ height: '100%', width: '100%' }}
                           scrollWheelZoom={false} attributionControl={false}>
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Polyline positions={route} pathOptions={{ color: SPORTS[bucket].color, weight: 4 }} />
+              <AnimatedRoute route={route} color={SPORTS[bucket].color}
+                             activityId={activity.id} />
             </MapContainer>
           </div>
         </Section>
@@ -386,12 +532,7 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
                      fastestSplit={fastestSplit} />
       )}
 
-      {zones.length > 0 && (
-        <Section title="Time in heart-rate zones"
-                 aside={<span className="text-2xs text-faint tnum">{duration(zoneTotal)}</span>}>
-          <ZoneBars zones={zones} total={zoneTotal} />
-        </Section>
-      )}
+      <ZoneSection hr={hrZones} paceZones={paceZones} />
 
       <CoachNoteCard activityId={activity.id} title="Coach's note" />
 
@@ -452,7 +593,7 @@ export const ActivityDetail: React.FC<Props> = ({ activity, onBack, onDelete }) 
         </div>
       </Section>
 
-      {!showPace && rows.length <= 10 && zones.length === 0 && (
+      {!showPace && rows.length <= 10 && hrZones.length === 0 && (
         <Empty>This session recorded heart rate only — no route, pace or distance.</Empty>
       )}
     </div>
