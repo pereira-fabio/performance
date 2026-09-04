@@ -1,4 +1,6 @@
-FROM python:3.11-slim
+# 3.12: garminconnect requires it, and it matches the interpreter the
+# backend is developed and tested against.
+FROM python:3.12-slim
 
 WORKDIR /app
 
