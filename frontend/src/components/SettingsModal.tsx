@@ -105,6 +105,25 @@ export const SettingsModal: React.FC<{
         <p className="text-[13px] text-muted">{note ?? 'Loading…'}</p>
       ) : (
         <form onSubmit={save} className="space-y-5">
+          {/* At the top, with the account it belongs to. At the bottom it sat
+              beside Save, and the one button you must never hit by accident
+              should not share an edge with the one you press every time. */}
+          <div className="flex items-center justify-between gap-3 pb-4 border-b border-line">
+            <span className="text-2xs text-faint truncate">
+              {username ? `Signed in as ${username}` : 'Signed in'}
+            </span>
+            <button type="button" onClick={onSignOut}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold
+                               text-muted hover:text-negative transition">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
+              </svg>
+              Sign out
+            </button>
+          </div>
+
           <div className="flex items-center gap-4">
             <div className="shrink-0 h-16 w-16 rounded-2xl overflow-hidden grid place-items-center
                             bg-surface border border-line text-faint">
@@ -236,24 +255,6 @@ export const SettingsModal: React.FC<{
           </div>
 
           {note && <p className="text-2xs text-negative">{note}</p>}
-
-          {/* Signing out belongs with the account, not in the main menu where
-              it sat one slip away from everything else. */}
-          <div className="pt-4 border-t border-line flex items-center justify-between gap-3">
-            <span className="text-2xs text-faint truncate">
-              {username ? `Signed in as ${username}` : 'Signed in'}
-            </span>
-            <button type="button" onClick={onSignOut}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold
-                               text-muted hover:text-negative transition">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
-              </svg>
-              Sign out
-            </button>
-          </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}

@@ -77,6 +77,14 @@ class BestEffortOut(BaseModel):
     time_seconds: float
     pace_sec_km: float
     is_personal_record: bool
+    # 1, 2 or 3 -- the best three at this distance rather than only the best.
+    # Second and third are the ones that say whether a record is a plateau or
+    # a jump, and they are what you chase next.
+    rank: int = 1
+    # Which run it happened in, so a record can be opened rather than just read.
+    activity_id: Optional[str] = None
+    activity_name: Optional[str] = None
+    achieved_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

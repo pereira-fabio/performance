@@ -17,6 +17,11 @@ export interface BestEffort {
   time_seconds: number;
   pace_sec_km: number;
   is_personal_record: boolean;
+  /** 1, 2 or 3 at this distance. */
+  rank: number;
+  activity_id?: string | null;
+  activity_name?: string | null;
+  achieved_at?: string | null;
 }
 
 export interface StreamPoint {

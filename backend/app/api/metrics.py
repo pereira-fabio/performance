@@ -34,30 +34,51 @@ def get_pmc_chart(
     )
     return records
 
+# How many efforts to keep per distance. Three because a personal best on its
+# own does not say whether it was a step or a leap; the two behind it do.
+RECORDS_PER_DISTANCE = 3
+
+
 @router.get("/records", response_model=List[BestEffortOut])
 def get_personal_records(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    """Returns all-time personal records across standard running distances."""
-    # Join to the activity so efforts recorded before sport filtering existed,
+    """The best three efforts at each standard running distance."""
+    # Joined to the activity so efforts recorded before sport filtering existed,
     # or on a walk, cannot appear as running records.
-    all_efforts = (
-        db.query(BestEffort)
+    rows = (
+        db.query(BestEffort, Activity.name)
         .join(Activity, Activity.id == BestEffort.activity_id)
         .filter(Activity.user_id == user.id, Activity.sport_type.in_(RUNNING_SPORTS))
         .order_by(BestEffort.time_seconds.asc())
         .all()
     )
-    
-    # Keep best time per label
-    seen = {}
-    records = []
-    for eff in all_efforts:
-        if eff.label not in seen:
-            seen[eff.label] = True
-            eff.is_personal_record = True
-            records.append(eff)
-            
-    # Sort by distance
-    records.sort(key=lambda x: x.distance_meters)
+
+    kept: dict = {}
+    for effort, activity_name in rows:
+        bucket = kept.setdefault(effort.label, [])
+        if len(bucket) >= RECORDS_PER_DISTANCE:
+            continue
+        # One entry per run. A single session can hold several efforts at a
+        # distance, and three rows from the same morning is a list of one run,
+        # not a top three.
+        if any(e["activity_id"] == effort.activity_id for e in bucket):
+            continue
+        bucket.append({
+            "label": effort.label,
+            "distance_meters": effort.distance_meters,
+            "time_seconds": effort.time_seconds,
+            "pace_sec_km": effort.pace_sec_km,
+            # Derived from the ranking rather than read from the row: the
+            # stored flag is set at ingestion and can be stale, and the query
+            # above has just established the real order.
+            "is_personal_record": len(bucket) == 0,
+            "rank": len(bucket) + 1,
+            "activity_id": effort.activity_id,
+            "activity_name": activity_name,
+            "achieved_at": effort.achieved_at,
+        })
+
+    records = [e for bucket in kept.values() for e in bucket]
+    records.sort(key=lambda e: (e["distance_meters"], e["rank"]))
     return records
 
 @router.get("/summary")

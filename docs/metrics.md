@@ -126,6 +126,7 @@ Recovery hours are estimated from the same load, adjusted for current form. Both
 - **Heart-rate zones** from your max, resting and threshold heart rates.
 - **Splits** per kilometre, with pace, GAP, heart rate and elevation change. A trailing partial kilometre is marked and excluded from comparisons.
 - **Best efforts** at 400 m, 1 km, 1 mile, 5 km, 10 km, half and full marathon, found as the fastest window anywhere in the activity.
+- **Personal records** keep the best *three* at each distance, ranked. A record alone does not say whether it was a step or a leap; the two behind it do, and beating your second-fastest 5k is a real result on a day the record is out of reach. Only one entry per run, since a single session holds several efforts at a distance and three rows from one morning is a list of one run. Each opens the run it happened in.
 - **Fastest pace** is the best 30-second window, not an instantaneous GPS spike.
 
 **Only running sets records.** A walk cannot set a 5 km personal record.

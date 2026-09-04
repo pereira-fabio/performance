@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Activity, DashboardSummary, PMCPoint, BestEffort } from '../types';
 import { SportKey, SPORTS, km, duration, weekStart } from '../lib/format';
 import { Stat, StatGrid, Section, Empty, Card } from './Stat';
@@ -22,7 +22,36 @@ const formLabel = (tsb: number) => {
   return { text: 'Overloaded', tone: 'negative' as const };
 };
 
+// Enough to fill a screen and see where the week went, without laying out
+// several hundred rows nobody scrolled to.
+const PAGE = 10;
+
 export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, records, onSelect }) => {
+  const [shown, setShown] = useState(PAGE);
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  // Switching sports starts the list again rather than inheriting how far the
+  // last one was opened.
+  useEffect(() => { setShown(PAGE); }, [tab]);
+
+  // Scrolling to the bottom loads the next page on its own; the button below
+  // is the same action for anyone who would rather ask for it, and the only
+  // one that works without an observer.
+  useEffect(() => {
+    const node = sentinel.current;
+    if (!node || shown >= activities.length) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setShown((n) => Math.min(n + PAGE, activities.length));
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shown, activities.length]);
+
+  const visible = activities.slice(0, shown);
+  const remaining = activities.length - visible.length;
   // Monday to Sunday, not the last seven days. A rolling window answers a
   // different question and slides out from under you every morning; a week you
   // can point at on a calendar is the one people mean by "this week".
@@ -79,16 +108,38 @@ export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, reco
       )}
 
       {tab === 'runs' && records.length > 0 && (
-        <Section title="Personal records"><PersonalRecordsView records={records} /></Section>
+        <Section title="Personal records"
+                 aside={<span className="text-2xs text-faint">best three at each distance</span>}>
+          <PersonalRecordsView
+            records={records}
+            onSelect={(id) => {
+              const found = activities.find((a) => a.id === id);
+              if (found) onSelect(found);
+            }} />
+        </Section>
       )}
 
       <Section title="History" flush
-               aside={<span className="text-xs text-faint tnum">{activities.length} total</span>}>
+               aside={<span className="text-xs text-faint tnum">
+                 {visible.length} of {activities.length}
+               </span>}>
         {activities.length === 0 ? (
           <Empty>No {SPORTS[tab].label.toLowerCase()} recorded yet.</Empty>
         ) : (
           <div>
-            {activities.map((a) => <ActivityRow key={a.id} activity={a} onSelect={onSelect} />)}
+            {visible.map((a) => <ActivityRow key={a.id} activity={a} onSelect={onSelect} />)}
+            {remaining > 0 && (
+              <div ref={sentinel} className="p-4 text-center border-t border-line">
+                <button
+                  onClick={() => setShown((n) => Math.min(n + PAGE, activities.length))}
+                  className="text-xs font-semibold text-accent hover:underline">
+                  Load {Math.min(PAGE, remaining)} more
+                </button>
+                <span className="block mt-1 text-2xs text-faint tnum">
+                  {remaining} older {remaining === 1 ? 'session' : 'sessions'}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </Section>
