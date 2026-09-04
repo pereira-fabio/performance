@@ -6,6 +6,7 @@ export interface StoredSession {
   display_name?: string | null;
   user_id?: string;
   is_admin?: boolean;
+  data_source?: string;
 }
 
 export const loadSession = (): StoredSession | null => {

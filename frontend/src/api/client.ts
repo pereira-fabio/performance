@@ -53,8 +53,10 @@ export interface AuthStatus {
 export const getAuthStatus = async (): Promise<AuthStatus> =>
   (await api.get<AuthStatus>('/auth/status')).data;
 
-export const register = async (username: string, password: string, display_name?: string) => {
-  const res = await api.post('/auth/register', { username, password, display_name });
+export const register = async (
+  username: string, password: string, display_name?: string, data_source = 'health_connect'
+) => {
+  const res = await api.post('/auth/register', { username, password, display_name, data_source });
   saveSession(res.data);
   return res.data;
 };
@@ -91,7 +93,8 @@ export const deleteAccount = async (password: string): Promise<void> => {
 };
 
 export interface Me {
-  user_id: string; username: string; display_name?: string | null; is_admin: boolean;
+  user_id: string; username: string; display_name?: string | null;
+  is_admin: boolean; data_source: string;
 }
 
 /**
@@ -103,7 +106,8 @@ export interface Me {
 export const refreshMe = async (): Promise<Me> => {
   const me = (await api.get<Me>('/auth/me')).data;
   const session = loadSession();
-  if (session) saveSession({ ...session, user_id: me.user_id, is_admin: me.is_admin });
+  if (session) saveSession({ ...session, user_id: me.user_id, is_admin: me.is_admin,
+                             data_source: me.data_source });
   return me;
 };
 
@@ -128,6 +132,26 @@ export const adminBackups = async (): Promise<{
 
 export const adminCreateBackup = async () => (await api.post('/admin/backups')).data;
 export const adminPruneBackups = async () => (await api.delete('/admin/backups')).data;
+
+export const setDataSource = async (data_source: string): Promise<Me> => {
+  const me = (await api.patch<Me>('/auth/me/source', { data_source })).data;
+  const session = loadSession();
+  if (session) saveSession({ ...session, data_source: me.data_source });
+  return me;
+};
+
+/** Import exported activity files: GPX, TCX, FIT, or a zip of them. */
+export const importFiles = async (files: File[]): Promise<{
+  imported: number; skipped: number; problems: string[]; problem_count: number;
+}> => {
+  const form = new FormData();
+  files.forEach((f) => form.append('files', f));
+  const res = await api.post('/sync/import', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000,   // a bulk archive can hold hundreds of activities
+  });
+  return res.data;
+};
 
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }

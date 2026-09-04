@@ -8,7 +8,7 @@ import { AppSettingsModal } from './components/AppSettingsModal';
 import { Menu } from './components/Menu';
 import { LoginScreen } from './components/LoginScreen';
 import { AdminModal } from './components/AdminModal';
-import { GPXUploadModal } from './components/GPXUploadModal';
+import { ImportModal } from './components/ImportModal';
 import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
 import { SportKey, TabKey, bucketOf } from './lib/format';
 import {
@@ -151,6 +151,7 @@ export const App: React.FC = () => {
             isAdmin={session?.is_admin}
             onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }}
             onImport={() => { setMenuOpen(false); setUploadOpen(true); }}
+            dataSource={session?.data_source}
             onSignOut={async () => { await logout(); setSession(null); }} />
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={load} />
       <AdminModal isOpen={adminOpen} onClose={() => setAdminOpen(false)}
@@ -158,8 +159,8 @@ export const App: React.FC = () => {
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
                         onUpdated={load} activityCount={activities.length}
                         onDeleted={() => { setSettingsOpen(false); setSession(null); }} />
-      <GPXUploadModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}
-                      onUploaded={(a) => { load(); openActivity(a); }} />
+      <ImportModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}
+                   onImported={load} dataSource={session?.data_source} />
     </>
   );
 };

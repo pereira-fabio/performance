@@ -9,6 +9,7 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [source, setSource] = useState('health_connect');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +28,7 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'register') await register(username, password, username);
+      if (mode === 'register') await register(username, password, username, source);
       else await login(username, password);
       onSignedIn();
     } catch (err: any) {
@@ -74,6 +75,30 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
               <span className="block text-2xs text-faint mt-1">At least 8 characters.</span>
             )}
           </label>
+
+          {mode === 'register' && (
+            <div>
+              <span className="text-xs text-muted">Where your training comes from</span>
+              <div className="mt-1.5 space-y-2">
+                {[
+                  { id: 'health_connect', title: 'Android phone',
+                    hint: 'Reads Health Connect through the companion app — Nothing X, Samsung Health, Fitbit and others.' },
+                  { id: 'file_import', title: 'Garmin, Polar, Coros or iPhone',
+                    hint: 'No Health Connect. Export activities from your account and import the files here.' },
+                ].map((opt) => (
+                  <button type="button" key={opt.id} onClick={() => setSource(opt.id)}
+                    className={`w-full text-left p-3 rounded-lg border transition ${
+                      source === opt.id
+                        ? 'border-accent bg-accent-soft'
+                        : 'border-line hover:border-line-strong'}`}>
+                    <div className="text-[13px] font-semibold text-fg-strong">{opt.title}</div>
+                    <div className="text-2xs text-muted mt-0.5">{opt.hint}</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-2xs text-faint mt-1.5">You can change this later.</p>
+            </div>
+          )}
 
           {error && <p className="text-[13px] text-negative">{error}</p>}
 

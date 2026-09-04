@@ -83,8 +83,17 @@ def _clean(value) -> Optional[float]:
 
 
 class ActivityProcessor:
-    def __init__(self, db: Session):
+    """
+    Processes one athlete's sessions.
+
+    The account is required rather than optional: every read and write below is
+    scoped to it, and defaulting to whoever happens to be first in the table is
+    how one athlete's run lands on another's dashboard.
+    """
+
+    def __init__(self, db: Session, account: User):
         self.db = db
+        self.account = account
         self.user = self._get_or_create_user_profile()
 
     def _typical_session_load(self, sport_type: str, before, fallback) -> float:
@@ -138,16 +147,22 @@ class ActivityProcessor:
         return result.elevation, info
 
     def _get_or_create_user_profile(self) -> UserProfile:
-        user = self.db.query(UserProfile).first()
-        if not user:
-            user = UserProfile(
-                id=1, name="Runner", max_hr=190, resting_hr=50,
+        profile = (
+            self.db.query(UserProfile)
+            .filter(UserProfile.user_id == self.account.id)
+            .first()
+        )
+        if not profile:
+            profile = UserProfile(
+                user_id=self.account.id,
+                name=self.account.display_name or "Runner",
+                max_hr=190, resting_hr=50,
                 lthr=168, threshold_pace_sec=240.0, weight_kg=70.0,
             )
-            self.db.add(user)
+            self.db.add(profile)
             self.db.commit()
-            self.db.refresh(user)
-        return user
+            self.db.refresh(profile)
+        return profile
 
     # ------------------------------------------------------------------
     # Ingestion

@@ -39,6 +39,9 @@ class Credentials(BaseModel):
     username: str = Field(min_length=2, max_length=64)
     password: str = Field(min_length=1, max_length=256)
     display_name: Optional[str] = Field(default=None, max_length=128)
+    # health_connect for Android, file_import for Garmin, Polar, Coros and the
+    # rest -- anything that exports files but has no Health Connect.
+    data_source: Optional[str] = Field(default="health_connect")
 
 
 class Session_(BaseModel):
@@ -47,6 +50,7 @@ class Session_(BaseModel):
     display_name: Optional[str]
     user_id: str
     is_admin: bool = False
+    data_source: str = "health_connect"
     claimed_existing_data: bool = False
 
 
@@ -55,6 +59,7 @@ class Me(BaseModel):
     username: str
     display_name: Optional[str]
     is_admin: bool = False
+    data_source: str = "health_connect"
 
 
 def _issue(db: Session, user: User, label: Optional[str]) -> str:
@@ -120,6 +125,7 @@ def register(body: Credentials, db: Session = Depends(get_db)):
         display_name=(body.display_name or body.username).strip(),
         password_hash=hash_password(body.password),
         is_admin=first_account,
+        data_source=(body.data_source or "health_connect"),
     )
     db.add(user)
     db.flush()
@@ -143,7 +149,8 @@ def register(body: Credentials, db: Session = Depends(get_db)):
     return Session_(
         token=_issue(db, user, "register"), username=user.username,
         display_name=user.display_name, user_id=user.id,
-        is_admin=bool(user.is_admin), claimed_existing_data=claimed,
+        is_admin=bool(user.is_admin), data_source=user.data_source or "health_connect",
+        claimed_existing_data=claimed,
     )
 
 
@@ -160,8 +167,25 @@ def login(body: Credentials, db: Session = Depends(get_db)):
     return Session_(
         token=_issue(db, user, "login"), username=user.username,
         display_name=user.display_name, user_id=user.id,
-        is_admin=bool(user.is_admin),
+        is_admin=bool(user.is_admin), data_source=user.data_source or "health_connect",
     )
+
+
+class SourcePatch(BaseModel):
+    data_source: str
+
+
+@router.patch("/me/source", response_model=Me)
+def set_data_source(
+    body: SourcePatch, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    """Switch between reading Health Connect and importing files."""
+    if body.data_source not in ("health_connect", "file_import"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unknown data source")
+    user.data_source = body.data_source
+    db.commit()
+    return Me(user_id=user.id, username=user.username, display_name=user.display_name,
+              is_admin=bool(user.is_admin), data_source=user.data_source)
 
 
 @router.post("/logout")
@@ -304,4 +328,5 @@ def export_my_data(
 @router.get("/me", response_model=Me)
 def me(user: User = Depends(current_user)):
     return Me(user_id=user.id, username=user.username,
-              display_name=user.display_name, is_admin=bool(user.is_admin))
+              display_name=user.display_name, is_admin=bool(user.is_admin),
+              data_source=user.data_source or "health_connect")

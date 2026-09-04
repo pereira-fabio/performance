@@ -22,6 +22,9 @@ class User(Base):
     # The first account registered becomes the administrator, so a fresh
     # install has one without a separate setup step.
     is_admin = Column(Boolean, default=False)
+    # How this athlete gets data in. Android reads Health Connect directly;
+    # everyone else imports files their watch platform exports.
+    data_source = Column(String(32), default="health_connect")
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -9,6 +9,7 @@ interface MenuProps {
   onImport: () => void;
   athlete?: string;
   isAdmin?: boolean;
+  dataSource?: string;
   onAdmin: () => void;
   onSignOut: () => void;
 }
@@ -33,7 +34,7 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onImport, onAdmin, onSignOut, athlete, isAdmin,
+  open, onClose, onProfile, onSettings, onImport, onAdmin, onSignOut, athlete, isAdmin, dataSource,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -72,7 +73,8 @@ export const Menu: React.FC<MenuProps> = ({
                   icon={svg('M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z')}
                   onClick={onAdmin} />
           )}
-          <Item label="Import GPX" hint="Add an activity by file"
+          <Item label="Import activities"
+                hint={dataSource === 'file_import' ? 'Garmin, Polar or Coros files' : 'GPX, TCX, FIT or a zip'}
                 icon={svg('M12 16V4|M7 9l5-5 5 5|M4 20h16')}
                 onClick={onImport} />
         </div>

@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 import traceback
-import gpxpy
 
 from backend.app.core.database import get_db
 from backend.app.core.config import settings
@@ -11,6 +10,7 @@ from backend.app.models.schemas import HealthConnectSessionPayload, DailyHealthP
 from backend.app.models.models import DailyHealth, Activity, User
 from backend.app.api.auth import current_user
 from backend.app.services.activity_processor import ActivityProcessor
+from backend.app.services.file_import import parse_any
 
 router = APIRouter(prefix="/sync", tags=["Sync & Ingestion"])
 
@@ -81,60 +81,44 @@ def sync_daily_health(
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"Failed to process daily health: {str(e)}")
 
-@router.post("/upload-gpx", response_model=ActivityDetailOut)
-async def upload_gpx(
-    file: UploadFile = File(...),
+@router.post("/import")
+async def import_files(
+    files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    contents = await file.read()
-    gpx = gpxpy.parse(contents.decode("utf-8", errors="ignore"))
-    
-    route_points = []
-    hr_series = []
-    
-    for track in gpx.tracks:
-        for segment in track.segments:
-            for pt in segment.points:
-                route_points.append({
-                    "time": pt.time,
-                    "lat": pt.latitude,
-                    "lng": pt.longitude,
-                    "altitude": pt.elevation,
-                    "speed": pt.speed
-                })
-                for ext in pt.extensions:
-                    for child in ext:
-                        if "hr" in child.tag.lower() or "heartrate" in child.tag.lower():
-                            try:
-                                hr_series.append({"time": pt.time, "bpm": int(child.text)})
-                            except ValueError:
-                                pass
-                                
-    if not route_points:
-        raise HTTPException(status_code=400, detail="No GPS track points found in GPX file")
+    """
+    Import activities from exported files.
 
-    route_points = [p for p in route_points if p["time"] is not None]
-    if not route_points:
-        raise HTTPException(
-            status_code=422,
-            detail="GPX track points carry no timestamps, so no timeline can be built.",
-        )
+    Accepts GPX, TCX, FIT, and zip archives of them -- which is what Garmin's
+    "Export All Data" produces. This is the path for anyone without Health
+    Connect: a Garmin, Polar or Coros owner, or anyone on an iPhone.
 
-    session_id = f"gpx_{file.filename}_{int(route_points[0]['time'].timestamp())}"
-    payload = HealthConnectSessionPayload(
-        session_id=session_id,
-        title=gpx.name or file.filename.replace(".gpx", ""),
-        sport_type="running",
-        start_time=route_points[0]["time"],
-        end_time=route_points[-1]["time"],
-        route_points=route_points,
-        heart_rate_series=hr_series
-    )
-    
-    try:
-        processor = ActivityProcessor(db, user)
-        return processor.process_health_connect_session(payload)
-    except ValueError as e:
-        db.rollback()
-        raise HTTPException(status_code=422, detail=str(e))
+    Files are processed independently so one unreadable activity in a bulk
+    archive does not lose the rest of it.
+    """
+    processor = ActivityProcessor(db, user)
+    imported, skipped, problems = 0, 0, []
+
+    for upload in files:
+        payloads, errors = parse_any(upload.filename or "upload", await upload.read())
+        problems.extend(errors)
+        for payload in payloads:
+            try:
+                processor.process_health_connect_session(payload)
+                imported += 1
+            except ValueError as exc:
+                # Nothing usable in it; recorded rather than failing the batch.
+                skipped += 1
+                problems.append(f"{payload.session_id}: {exc}")
+            except Exception as exc:
+                db.rollback()
+                skipped += 1
+                problems.append(f"{payload.session_id}: {exc}")
+
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "problems": problems[:50],
+        "problem_count": len(problems),
+    }
