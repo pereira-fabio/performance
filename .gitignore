@@ -24,6 +24,13 @@ data/dem/
 # Build output
 # ---------------------------------------------------------------------------
 *.apk
+
+# Signing keys. Anyone holding one can publish an update that installs over a
+# real installation, so they never belong in the repository -- CI reads its own
+# from a secret.
+*.jks
+*.keystore
+android-companion/local.properties
 *.aab
 android-companion/build/
 android-companion/app/build/

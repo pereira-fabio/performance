@@ -75,26 +75,74 @@ npx tsc --noEmit   # typecheck alone
 ### Android
 
 ```bash
-cd android-companion
-ANDROID_HOME=/path/to/android-sdk ./gradlew assembleDebug
+ANDROID_HOME=/path/to/android-sdk ./scripts/build-apk.sh
 ```
 
-The SDK path must be passed explicitly, or set in `local.properties`, or gradle stops with *"SDK location not found"*.
+That is the whole thing. **The APK bundles the dashboard**, so the script builds
+the frontend, copies it into `app/src/main/assets/www`, and then runs gradle —
+doing those by hand is the reliable way to ship an app whose viewer is a version
+behind its sync code. The built dashboard is not in the repository for the same
+reason: it is always built from the source beside it.
 
-**The APK bundles the dashboard.** Build the frontend and copy it in before building the app, or the viewer ships stale:
+The SDK path must be passed explicitly or set in `local.properties`, or gradle
+stops with *"SDK location not found"*.
+
+Gradle directly still works if you have already built the frontend:
 
 ```bash
-cd frontend && npm run build && cd ..
-rm -rf android-companion/app/src/main/assets/www
-cp -r frontend/dist android-companion/app/src/main/assets/www
 cd android-companion && ANDROID_HOME=... ./gradlew assembleDebug
 ```
 
-The debug key is stable, so a new debug APK installs over an older one without an uninstall. Check before replacing a distributed build:
+Your local debug key is stable, so a new debug APK installs over your own
+previous one. Check before replacing a build other people have installed:
 
 ```bash
-$ANDROID_HOME/build-tools/*/apksigner verify --print-certs app-debug.apk
+$ANDROID_HOME/build-tools/*/apksigner verify --print-certs performance-debug.apk
 ```
+
+### Releasing the Android app
+
+`.github/workflows/apk.yml` builds the app in CI. It runs on a `v*` tag and on
+demand, and always leaves the APK as a workflow artifact; a tag also attaches it
+to the GitHub release.
+
+**Android installs an update only over an app signed with the same key.** A
+debug build is signed with whatever debug key the machine that built it
+generated, so builds from different machines — and from CI, which starts clean
+every run — cannot upgrade each other. For anything other people install, sign
+it properly.
+
+Create a key once, keep it somewhere safe, and never commit it:
+
+```bash
+keytool -genkeypair -v -keystore release.jks -alias performance \
+        -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 release.jks          # paste into the secret below
+```
+
+Then add four repository secrets under **Settings → Secrets and variables →
+Actions**:
+
+| Secret | What it holds |
+| :-- | :-- |
+| `ANDROID_KEYSTORE_BASE64` | The keystore, base64-encoded |
+| `ANDROID_KEYSTORE_PASSWORD` | Its password |
+| `ANDROID_KEY_ALIAS` | The alias you chose |
+| `ANDROID_KEY_PASSWORD` | The key's password |
+
+With those present, a tag produces a signed release build. Without them a tag
+still produces an installable debug build rather than an unsigned release
+nobody can install. The same variables work locally:
+
+```bash
+ANDROID_KEYSTORE_PATH=$PWD/release.jks ANDROID_KEYSTORE_PASSWORD=... \
+ANDROID_KEY_ALIAS=performance ANDROID_KEY_PASSWORD=... \
+  ./scripts/build-apk.sh release
+```
+
+Losing the key means you can never update that installation again — only
+uninstall and reinstall, which is why it is worth backing up separately from
+the repository.
 
 ---
 

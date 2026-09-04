@@ -20,6 +20,30 @@ android {
         }
     }
 
+    /*
+     * Release signing, only when the build has been handed a key.
+     *
+     * Read from the environment rather than a checked-in file: a signing key
+     * is the one thing that must never be in the repository, since anyone
+     * holding it can publish an update that installs over a real one.
+     *
+     * Without the variables the release build is simply unsigned, which
+     * Android refuses to install -- a clear failure rather than an APK that
+     * looks fine and cannot be upgraded later.
+     */
+    val keystorePath: String? = System.getenv("ANDROID_KEYSTORE_PATH")
+
+    signingConfigs {
+        if (!keystorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -27,6 +51,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (!keystorePath.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {

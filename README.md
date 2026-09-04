@@ -46,13 +46,45 @@ Open the dashboard and register. Registration asks for your name as well as a us
 
 Then pick how your activities get in:
 
-- **Android** — build and install the companion app, grant Health Connect permissions, point it at `http://<server>:8000`. See [Data sources](docs/data-sources.md#android-health-connect).
+- **Android** — install the companion app (see [Getting the Android app](#getting-the-android-app)), grant Health Connect permissions, point it at `http://<server>:8000`. See [Data sources](docs/data-sources.md#android-health-connect).
 - **Garmin, including on iPhone** — sign in under Settings → Automatic sync and it polls for you every half hour. The first sync pulls your whole account, a batch at a time. See [Data sources](docs/data-sources.md#garmin-connect).
 - **Anything else** — export TCX, GPX or FIT and drop them into Settings → Import activities. See [Data sources](docs/data-sources.md#file-import).
 
 Then set your thresholds under **Profile** — maximum, resting and threshold heart rate, and threshold pace. Zones and training load are measured against them, and left at the defaults every run lands in the same zone and every load figure is wrong.
 
 Full deployment instructions, including Proxmox and TrueNAS, are in [Installation](docs/installation.md).
+
+---
+
+## Getting the Android app
+
+The app syncs from Health Connect and carries the dashboard inside it, so it
+works as a viewer too.
+
+**Download it.** Every tagged version has an APK attached under
+[Releases](../../releases). Download it on the phone and open it — Android will
+ask you to allow installing from that source once.
+
+Between releases, the **Android app** workflow under
+[Actions](../../actions/workflows/apk.yml) can be run on demand and leaves the
+APK as a downloadable artifact.
+
+**Or build it yourself**, with an Android SDK and Node installed:
+
+```bash
+./scripts/build-apk.sh              # → performance-debug.apk
+```
+
+One command, because the APK bundles the dashboard: the web build has to happen
+first and be copied into the app's assets, and doing that by hand is the
+reliable way to ship an app whose viewer is older than its sync code.
+
+> **On upgrading:** Android will only install over an existing app if both were
+> signed with the same key. A debug build from your machine and one from
+> Actions are signed differently, so mixing them means uninstalling first —
+> which deletes nothing but the app's own settings, since all your training
+> lives on the server. Signing releases properly is covered in
+> [Development](docs/development.md#releasing-the-android-app).
 
 ---
 
