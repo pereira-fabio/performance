@@ -1,177 +1,131 @@
 # Performance
 
-Self-hosted training analytics. Reads running, walking and gym sessions from **Android Health Connect**, computes exercise-physiology metrics from them, and keeps every byte on your own server.
+Self-hosted training analytics. It reads your activities from **Android Health Connect** or **Garmin Connect**, computes exercise-physiology metrics from them, and keeps every byte on your own server.
 
-Each sport is kept separate: walks and gym work are recorded and shown, but they do not set running records or drive the running fitness curve. Where the data cannot support a metric, the app says so rather than showing a plausible number.
+Built to run on a **Proxmox LXC container** backed by **TrueNAS SCALE**, but it is an ordinary Docker Compose stack and will run anywhere Docker does.
 
-Hosted directly on your **Proxmox LXC container** and backed by **TrueNAS SCALE** storage, Performance gives you professional-grade insights into your aerobic base, cardiac drift, and fatigue management.
+Two principles run through the whole thing:
 
----
+**Each sport is kept separate.** Walks and gym sessions are recorded and shown, but they do not set running records and they do not drive the running fitness curve. A 10:31/km walk is not a slow run.
 
-## 🌟 Why Performance Beats Strava
-
-| Feature | Strava (Free/Paid) | Performance |
-| :--- | :--- | :--- |
-| **Aerobic Decoupling ($Pa:HR$)** | ❌ Not available | ✅ **Built-in ($EF_1$ vs $EF_2$ split drift)** |
-| **Performance Management Chart (PMC)** | 🔒 Paywalled & simplified | ✅ **Full Banister Model (CTL, ATL, TSB, ACWR)** |
-| **Grade-Adjusted Pace (GAP)** | 🔒 Proprietary black-box | ✅ **Minetti et al. (2002) Metabolic Equation** |
-| **Recovery & HRV Correlation** | ❌ Not supported | ✅ **Health Connect HRV RMSSD, RHR & Sleep** |
-| **Cadence & Stride Length Dynamics** | Basic | ✅ **Continuous stride length & SPM analysis** |
-| **Data Privacy & Storage** | ☁️ Proprietary cloud | 🏠 **100% Self-Hosted on Proxmox & TrueNAS** |
-| **Subscription Cost** | $80+/year | 🆓 **Free & Open Source Forever** |
+**A missing number is shown as missing.** Where the data cannot support a metric, the app says so and says why, rather than showing a plausible figure. Every activity records which channels were measured, how well they were covered, and which values were estimated.
 
 ---
 
-## 🏗️ System Architecture
+## What it does
+
+| | |
+| :-- | :-- |
+| **Ingest** | Android companion app reading Health Connect; automatic Garmin Connect sync; TCX, GPX, FIT and zip import |
+| **Analyse** | Aerobic decoupling, grade-adjusted pace, rTSS, TRIMP, heart-rate zones, best efforts, training effect, recovery |
+| **Track** | Banister fitness/fatigue/form curve, personal records, XP and levels, achievements |
+| **Review** | Weekly, monthly and yearly recaps with period-on-period comparison; printable PDF reports |
+| **Comment** | Optional written coaching from a language model running on your own hardware |
+| **Manage** | Multiple accounts with separate data, an admin console, automatic dated backups |
+| **Personal** | Optional menstrual cycle tracking, per account and off by default |
+
+---
+
+## Quick start
+
+On a machine with Docker:
+
+```bash
+git clone git@github.com:pereira-fabio/performance.git /opt/peakpace
+cd /opt/peakpace
+docker compose up -d --build
+```
+
+- **Dashboard** — `http://<server>:3000`
+- **API and Swagger docs** — `http://<server>:8000/docs`
+
+Open the dashboard and register. **The first account created becomes the administrator** and claims any activities that were already in the database.
+
+Then pick how your activities get in:
+
+- **Android** — build and install the companion app, grant Health Connect permissions, point it at `http://<server>:8000`. See [Data sources](docs/data-sources.md#android-health-connect).
+- **Garmin, including on iPhone** — sign in under Settings → Automatic sync and it polls for you. See [Data sources](docs/data-sources.md#garmin-connect).
+- **Anything else** — export TCX, GPX or FIT and drop the files into the importer. See [Data sources](docs/data-sources.md#file-import).
+
+Full deployment instructions, including Proxmox and TrueNAS, are in [Installation](docs/installation.md).
+
+---
+
+## Documentation
+
+| Document | What is in it |
+| :-- | :-- |
+| [Installation](docs/installation.md) | Proxmox LXC, TrueNAS storage, Docker Compose, every configuration variable |
+| [Data sources](docs/data-sources.md) | Health Connect, Garmin, file import, and how ingestion handles duplicates and bad data |
+| [Metrics](docs/metrics.md) | Every figure the app computes, the formula behind it, and when it refuses to compute one |
+| [Reports and coaching](docs/reports.md) | Weekly recaps, PDF reports, and the local language model |
+| [Accounts and privacy](docs/accounts.md) | Accounts, the admin console, backups, cycle tracking, and exactly what is stored where |
+| [API reference](docs/api.md) | Every endpoint |
+| [Development](docs/development.md) | Repository layout, building the app, deploying, maintenance scripts, troubleshooting |
+
+---
+
+## How it compares
+
+| | Strava | Performance |
+| :-- | :-- | :-- |
+| Aerobic decoupling (Pa:HR) | Not available | Built in |
+| Fitness / fatigue / form | Paywalled, simplified | Full Banister model with ACWR |
+| Grade-adjusted pace | Proprietary | Minetti et al. (2002), documented |
+| Elevation when the watch records none | Not recovered | Recovered from a local terrain model |
+| Data quality | Not reported | Per-channel coverage on every activity |
+| Written coaching | Paywalled, cloud | Your own model, on your own hardware |
+| Where your GPS traces live | Their cloud | Your server, and nowhere else |
+| Cost | Subscription | Free and open source |
+
+---
+
+## Architecture
 
 ```mermaid
 graph TD
-    subgraph "Android Phone"
-        HC["Android Health Connect\n(Heart Rate, GPS, Cadence, HRV, Sleep)"]
-        APP["Performance Native Sync App\n(Kotlin + WorkManager)"]
+    subgraph phone["Android phone"]
+        HC["Health Connect<br/>heart rate, GPS, cadence, HRV, sleep"]
+        APP["Companion app<br/>Kotlin, WorkManager"]
         HC --> APP
     end
 
-    subgraph "Home Server (Proxmox LXC Container)"
-        API["FastAPI Backend & Physiology Engine\n(Port 8000)"]
-        FE["React + Vite + Tailwind Dashboard\n(Port 3000)"]
-        DB[(SQLite / PostgreSQL\nDatabase)]
+    subgraph other["Garmin / iPhone / other"]
+        GC["Garmin Connect"]
+        FILES["TCX / GPX / FIT export"]
     end
 
-    subgraph "NAS (TrueNAS SCALE)"
-        NAS[("Persistent Storage Share\n/data/peakpace.db\nRaw Workout Streams")]
+    subgraph server["Home server (Proxmox LXC)"]
+        API["FastAPI backend<br/>physiology engine · port 8000"]
+        SCHED["Scheduler<br/>backups, Garmin polling"]
+        FE["React dashboard<br/>nginx · port 3000"]
+        DB[("SQLite")]
+        LLM["Ollama<br/>optional, your hardware"]
     end
 
-    APP -->|"REST API (Auto Background Sync)"| API
-    FE -->|"Interactive API Client"| API
+    subgraph nas["TrueNAS SCALE"]
+        NAS[("Backups, terrain tiles,<br/>pictures, session tokens")]
+    end
+
+    APP -->|"REST, hourly"| API
+    GC -->|"polled"| SCHED
+    FILES -->|"upload"| API
+    FE --> API
+    SCHED --> API
     API --> DB
+    API -.->|"figures only"| LLM
     DB --> NAS
 ```
 
 ---
 
-## 🔬 Scientific Physiology Metrics Included
+## Tech stack
 
-### 1. Aerobic Decoupling ($Pa:HR$ Drift)
-Measures the cardiovascular efficiency across your run by comparing Aerobic Efficiency ($EF = \frac{\text{Speed}}{\text{HR}}$) in the first half vs the second half:
-$$\text{Decoupling Drift } (\%) = \left(1 - \frac{EF_2}{EF_1}\right) \times 100$$
-- **$< 3\%$**: Elite aerobic efficiency / negligible cardiac drift.
-- **$3\% - 5\%$**: Well-trained aerobic base.
-- **$> 5\%$**: Significant cardiac drift (fatigue, dehydration, heat, or running above aerobic threshold).
+- **Backend** — Python 3.12, FastAPI, SQLAlchemy, Pydantic v2, NumPy, SciPy, ReportLab, Uvicorn
+- **Frontend** — React 18, Vite, TypeScript, Tailwind CSS, Recharts, React-Leaflet
+- **Mobile** — Kotlin, Jetpack Compose, Health Connect client, WorkManager, OkHttp
+- **Infrastructure** — Docker Compose, nginx, SQLite in WAL mode, Proxmox LXC, TrueNAS SCALE
 
-### 2. Minetti Grade-Adjusted Pace (GAP)
-Converts slope running speed into flat-ground equivalent speed using the 5th-order polynomial energy cost formula from *Minetti et al. (2002)*:
-$$C_r(i) = 155.4 i^5 - 30.4 i^4 - 43.3 i^3 + 46.3 i^2 + 19.5 i + 3.6 \quad (\text{J/kg}\cdot\text{m})$$
+## Licence
 
-### 2b. Terrain Elevation Recovery (DEM)
-Many wearables write **no altitude at all** to Health Connect — Nothing X, for example, records a constant `0.0` for every route point, and writes no `ElevationGainedRecord`. Without elevation there is no grade, and without grade GAP is undefined.
-
-Performance therefore recovers elevation from the GPS track against a local **SRTM digital elevation model**:
-
-- Bilinear interpolation between DEM posts (nearest-neighbour would stair-step and manufacture false grade spikes).
-- The profile is smoothed over ~60 m of track, then ascent is accumulated with a 3 m threshold. Summing raw differences counts measurement noise as climbing — on a profile carrying 2 m of jitter that turns a 39 m climb into over 1800 m.
-- A device that reports **real** altitude is always preferred; the DEM is only consulted when it does not.
-- Tiles are read from local storage, so **GPS traces are never sent to a remote elevation service** — the whole point of self-hosting.
-- Each activity records which source was used, the tiles involved, and the resolution, under `data_quality.altitude`.
-
-**Setup:**
-```bash
-# 1. Find out which tiles your routes need
-docker exec -it performance-backend python backend/dem_tiles.py
-
-# 2. Download those tiles and drop them in DEM_DIR (/data/dem by default),
-#    as NxxEyyy.hgt or the downloaded NxxEyyy.hgt.zip — both are read directly.
-
-# 3. Re-sync to populate elevation and GAP on existing activities
-```
-1 arc-second (30 m) tiles resolve grade noticeably better than 3 arc-second (90 m). Both work. If no tile covers a route, elevation and GAP stay unavailable and the activity records exactly why — no fabricated numbers.
-
-### 3. Banister Performance Management Chart (PMC)
-Calculates your fitness, fatigue, and form trajectories:
-- **Chronic Training Load (CTL / "Fitness")**: 42-day Exponentially Weighted Moving Average (EWMA) of daily rTSS.
-- **Acute Training Load (ATL / "Fatigue")**: 7-day EWMA of daily rTSS.
-- **Training Stress Balance (TSB / "Form")**: $\text{TSB} = \text{CTL} - \text{ATL}$.
-- **Acute:Chronic Workload Ratio (ACWR)**: $\frac{\text{ATL}}{\text{CTL}}$ (optimal safe range $0.8 - 1.3$).
-
-### 4. Running Training Stress Score (rTSS)
-Uses 30-second rolling 4th-power Normalized Graded Pace (NGP) relative to your Lactate Threshold Pace.
-
----
-
-## 🚀 Proxmox LXC & TrueNAS Deployment
-
-### Step 1: Create a Proxmox LXC Container
-1. In the Proxmox VE web interface, create a new container (Debian 12 or Ubuntu 22.04/24.04).
-2. Allocate **2 vCPUs**, **2 GB RAM**, and **10 GB Disk**.
-3. Under **Options** $\rightarrow$ **Features**, enable **Nesting** and **keyctl** (required for Docker inside LXC).
-
-### Step 2: Mount TrueNAS Share into LXC
-You can mount your TrueNAS SMB or NFS share either via the Proxmox Host configuration or directly inside the LXC container:
-
-**Option A (Proxmox Host Mount Point):**
-Add the following line to `/etc/pve/lxc/<CTID>.conf` on your Proxmox host:
-```ini
-mp0: /mnt/pve/truenas_share,mp=/data
-```
-
-**Option B (Inside LXC fstab):**
-```bash
-mkdir -p /data
-# Mount SMB/CIFS share:
-mount -t cifs //truenas.local/bigboy/App/data /data -o username=<USER>,password=<PASS>,uid=1000,gid=1000
-```
-
-### Step 3: Run Setup Script or Docker Compose
-Inside your LXC container:
-```bash
-# Clone or navigate to this directory
-cd /run/user/1000/gvfs/smb-share:server=truenas.local,share=bigboy/App
-
-# Launch backend and frontend
-docker-compose up -d --build
-```
-
-The services will be accessible at:
-- 🌐 **Web Dashboard:** `http://<PROXMOX_LXC_IP>:3000`
-- 🔌 **API & Swagger Docs:** `http://<PROXMOX_LXC_IP>:8000/docs`
-
----
-
-## 📱 Android Health Connect Companion App
-
-The Android companion application is located in `android-companion/`.
-
-### Features:
-- Direct integration with **Android Health Connect** SDK.
-- Reads `ExerciseSessionRecord` (Running), `HeartRateRecord`, `SpeedRecord`, `ExerciseRoute` GPS points, and `StepsCadenceRecord`.
-- Reads daily recovery data: `HeartRateVariabilityRmssdRecord`, `RestingHeartRateRecord`, and `SleepSessionRecord`.
-- Automatic background synchronization using **WorkManager** (runs every hour or post-workout).
-
-### How to Build & Install:
-1. Open the `android-companion` folder in **Android Studio**.
-2. Connect your Android phone (with USB debugging enabled).
-3. Click **Run 'app'** or build the APK via terminal:
-   ```bash
-   cd android-companion
-   ./gradlew assembleDebug
-   ```
-4. On your phone, open **Performance Sync**, tap **Grant Health Connect Permissions**, and enter your server URL (`http://<YOUR_PROXMOX_IP>:8000`).
-5. Tap **Sync Now to Proxmox** — your runs and physiological data will appear on your web dashboard instantly!
-
----
-
-## 🧪 Seeding Sample Data (Optional)
-
-To test the dashboard immediately with simulated runs showing aerobic decoupling, PRs, and 60 days of PMC history:
-```bash
-docker exec -it performance-backend python backend/seed_demo_data.py
-```
-
----
-
-## 🛠️ Tech Stack
-
-- **Backend:** Python 3.11, FastAPI, SQLAlchemy, NumPy, SciPy, Pandas, GPXPy, FitParse, Uvicorn
-- **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, Leaflet, React-Leaflet, Recharts, Lucide Icons
-- **Mobile:** Android SDK 34, Kotlin, Jetpack Compose, Health Connect Client, WorkManager, OkHttp
-- **DevOps:** Docker, Docker Compose, Nginx, Proxmox LXC, TrueNAS SCALE
+See [LICENSE](LICENSE).
