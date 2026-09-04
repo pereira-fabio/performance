@@ -18,7 +18,9 @@ from backend.app.core.security import (
 )
 from sqlalchemy import or_
 
-from backend.app.models.models import User, AuthToken, Activity, DailyHealth, UserProfile
+from backend.app.models.models import (
+    User, AuthToken, Activity, DailyHealth, UserProfile, BestEffort,
+)
 
 
 def _unowned(column):
@@ -165,6 +167,80 @@ def logout(authorization: Optional[str] = Header(None), db: Session = Depends(ge
         db.query(AuthToken).filter(AuthToken.token == raw).delete()
         db.commit()
     return {"status": "signed out"}
+
+
+@router.get("/export")
+def export_my_data(
+    include_streams: bool = True,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Everything belonging to the signed-in athlete, as portable JSON.
+
+    This is not a backup. A backup restores the whole system atomically and is
+    the operator's concern; this is one athlete's own data, in a form they can
+    take elsewhere or keep independently of this server. Splitting the backup
+    per athlete instead would leave no consistent restore point.
+
+    Streams are the bulk of it -- a year of running is tens of megabytes -- so
+    they can be left out for a summary that stays small.
+    """
+    from backend.app.models.models import ActivityStream, ActivitySplit
+
+    activities = (
+        db.query(Activity).filter(Activity.user_id == user.id)
+        .order_by(Activity.start_time.asc()).all()
+    )
+    ids = [a.id for a in activities]
+
+    streams = {}
+    if include_streams and ids:
+        for s in db.query(ActivityStream).filter(ActivityStream.activity_id.in_(ids)):
+            streams[s.activity_id] = s.stream_data
+
+    splits: dict = {}
+    for sp in db.query(ActivitySplit).filter(ActivitySplit.activity_id.in_(ids or [""])):
+        splits.setdefault(sp.activity_id, []).append({
+            c.name: getattr(sp, c.name) for c in sp.__table__.columns
+            if c.name not in ("id", "activity_id")
+        })
+
+    efforts: dict = {}
+    for be in db.query(BestEffort).filter(BestEffort.activity_id.in_(ids or [""])):
+        efforts.setdefault(be.activity_id, []).append({
+            c.name: getattr(be, c.name) for c in be.__table__.columns
+            if c.name not in ("id", "activity_id")
+        })
+
+    def row(obj, skip=()):
+        return {
+            c.name: getattr(obj, c.name)
+            for c in obj.__table__.columns if c.name not in skip
+        }
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+
+    return {
+        "format": "performance.export.v1",
+        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "account": {"username": user.username, "display_name": user.display_name},
+        "profile": row(profile, skip=("id", "user_id")) if profile else None,
+        "daily_health": [
+            row(h, skip=("user_id",))
+            for h in db.query(DailyHealth).filter(DailyHealth.user_id == user.id)
+                       .order_by(DailyHealth.date.asc())
+        ],
+        "activities": [
+            {
+                **row(a, skip=("user_id",)),
+                "splits": splits.get(a.id, []),
+                "best_efforts": efforts.get(a.id, []),
+                **({"stream": streams.get(a.id)} if include_streams else {}),
+            }
+            for a in activities
+        ],
+    }
 
 
 @router.get("/me", response_model=Me)

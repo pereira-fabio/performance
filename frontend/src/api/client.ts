@@ -62,6 +62,25 @@ export const login = async (username: string, password: string) => {
   return res.data;
 };
 
+/**
+ * Download this athlete's own data.
+ *
+ * Separate from the server backup, which covers every account at once and
+ * exists to restore the system rather than to hand anyone their history.
+ */
+export const exportMyData = async (includeStreams: boolean): Promise<void> => {
+  const res = await api.get('/auth/export', {
+    params: { include_streams: includeStreams },
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `performance-export-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }
 };

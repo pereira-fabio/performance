@@ -126,6 +126,14 @@ def run_once(force: bool = False) -> bool:
         check = sqlite3.connect(tmp_path)
         status = check.execute("PRAGMA integrity_check").fetchone()[0]
         activities = check.execute("SELECT COUNT(*) FROM activities").fetchone()[0]
+        # Report the accounts covered. The snapshot is deliberately whole-system
+        # rather than per athlete: a backup has to restore atomically, and one
+        # athlete's rows put back into a live database is a merge, not a
+        # restore. Individual athletes export their own data instead.
+        try:
+            accounts = check.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        except sqlite3.Error:
+            accounts = 0
         check.close()
         if status != "ok":
             raise RuntimeError(f"integrity_check returned {status!r}")
@@ -140,7 +148,8 @@ def run_once(force: bool = False) -> bool:
         if os.path.getsize(final) != size:
             raise RuntimeError("copied file size does not match the snapshot")
 
-        log(f"Backup OK: {final} ({size / 1024:.1f} KB, {activities} activities)")
+        log(f"Backup OK: {final} ({size / 1024:.1f} KB, {activities} activities "
+            f"across {accounts} account(s))")
         record_stamp()
         prune()
         return True

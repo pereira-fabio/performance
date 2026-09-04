@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, button } from './Modal';
-import { recalculateMetrics } from '../api/client';
+import { recalculateMetrics, exportMyData } from '../api/client';
+import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
 
 const OPTIONS: { value: ThemePref; label: string }[] = [
@@ -55,6 +56,36 @@ export const AppSettingsModal: React.FC<{
             {busy ? 'Rebuilding…' : 'Rebuild fitness chart'}
           </button>
           {note && <p className="mt-2 text-xs text-muted">{note}</p>}
+        </div>
+
+        <div>
+          <div className="text-xs text-muted mb-2">Your data</div>
+          <div className="flex gap-2">
+            <button disabled={busy}
+              onClick={async () => {
+                setBusy(true); setNote(null);
+                try { await exportMyData(true); setNote('Export downloaded.'); }
+                catch (e) { setNote(describeError(e, 'Export failed.')); }
+                finally { setBusy(false); }
+              }}
+              className={`${button} flex-1 bg-surface border border-line text-fg hover:border-line-strong`}>
+              Export everything
+            </button>
+            <button disabled={busy}
+              onClick={async () => {
+                setBusy(true); setNote(null);
+                try { await exportMyData(false); setNote('Summary downloaded.'); }
+                catch (e) { setNote(describeError(e, 'Export failed.')); }
+                finally { setBusy(false); }
+              }}
+              className={`${button} flex-1 bg-surface border border-line text-fg hover:border-line-strong`}>
+              Summary only
+            </button>
+          </div>
+          <p className="mt-2 text-2xs text-faint">
+            Your activities and health as JSON. Everything includes GPS and heart-rate
+            traces and is much larger; the summary omits them.
+          </p>
         </div>
 
         <div className="pt-4 border-t border-line text-xs text-muted space-y-1">
