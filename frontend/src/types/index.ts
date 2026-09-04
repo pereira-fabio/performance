@@ -288,3 +288,31 @@ export interface TrainingCalendar {
   earliest: string | null;
   today: string;
 }
+
+export type CyclePhase = 'period' | 'follicular' | 'ovulation' | 'luteal' | null;
+
+export interface CycleSummary {
+  enabled: boolean;
+  logged_days: number;
+  periods_recorded: number;
+  has_prediction: boolean;
+  last_period_start: string | null;
+  last_period_days: number | null;
+  average_cycle_days: number | null;
+  average_period_days: number | null;
+  cycle_range: [number, number] | null;
+  cycle_day: number | null;
+  phase: CyclePhase;
+  predicted_next_start: string | null;
+  predicted_window: [string, string] | null;
+  days_until_next: number | null;
+  confidence: 'none' | 'low' | 'moderate' | 'high';
+  reason: string | null;
+}
+
+export interface CycleCalendarMonth {
+  month: string;
+  days: Record<string, { flow: string | null; notes: string | null }>;
+  predicted: string[];
+  today: string;
+}

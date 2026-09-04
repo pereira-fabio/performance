@@ -19,7 +19,7 @@ from backend.app.core.security import (
 from sqlalchemy import or_
 
 from backend.app.models.models import (
-    User, AuthToken, Activity, DailyHealth, UserProfile, BestEffort,
+    User, AuthToken, Activity, DailyHealth, UserProfile, BestEffort, CycleEntry,
 )
 
 
@@ -52,6 +52,7 @@ class Session_(BaseModel):
     user_id: str
     is_admin: bool = False
     data_source: str = "health_connect"
+    cycle_tracking: bool = False
     claimed_existing_data: bool = False
 
 
@@ -61,6 +62,7 @@ class Me(BaseModel):
     display_name: Optional[str]
     is_admin: bool = False
     data_source: str = "health_connect"
+    cycle_tracking: bool = False
 
 
 def _issue(db: Session, user: User, label: Optional[str]) -> str:
@@ -151,6 +153,7 @@ def register(body: Credentials, db: Session = Depends(get_db)):
         token=_issue(db, user, "register"), username=user.username,
         display_name=user.display_name, user_id=user.id,
         is_admin=bool(user.is_admin), data_source=user.data_source or "health_connect",
+        cycle_tracking=bool(user.cycle_tracking),
         claimed_existing_data=claimed,
     )
 
@@ -181,6 +184,7 @@ def login(body: LoginCredentials, db: Session = Depends(get_db)):
         token=_issue(db, user, "login"), username=user.username,
         display_name=user.display_name, user_id=user.id,
         is_admin=bool(user.is_admin), data_source=user.data_source or "health_connect",
+        cycle_tracking=bool(user.cycle_tracking),
     )
 
 
@@ -198,7 +202,8 @@ def set_data_source(
     user.data_source = body.data_source
     db.commit()
     return Me(user_id=user.id, username=user.username, display_name=user.display_name,
-              is_admin=bool(user.is_admin), data_source=user.data_source)
+              is_admin=bool(user.is_admin), data_source=user.data_source,
+              cycle_tracking=bool(user.cycle_tracking))
 
 
 @router.post("/logout")
@@ -253,6 +258,10 @@ def delete_account(
         .delete(synchronize_session=False)
     )
     db.query(UserProfile).filter(UserProfile.user_id == user.id).delete(synchronize_session=False)
+    # Deleted explicitly rather than left to the foreign key: SQLite does not
+    # enforce ON DELETE CASCADE unless the pragma is set, so these rows would
+    # otherwise outlive the account that owned them.
+    db.query(CycleEntry).filter(CycleEntry.user_id == user.id).delete(synchronize_session=False)
     db.query(AuthToken).filter(AuthToken.user_id == user.id).delete(synchronize_session=False)
     db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
     db.commit()
@@ -326,6 +335,13 @@ def export_my_data(
             for h in db.query(DailyHealth).filter(DailyHealth.user_id == user.id)
                        .order_by(DailyHealth.date.asc())
         ],
+        # Included because "export everything" has to mean everything; an
+        # export that quietly omits the most personal thing stored is not one.
+        "cycle_entries": [
+            row(c, skip=("user_id",))
+            for c in db.query(CycleEntry).filter(CycleEntry.user_id == user.id)
+                       .order_by(CycleEntry.date.asc())
+        ],
         "activities": [
             {
                 **row(a, skip=("user_id",)),
@@ -342,4 +358,5 @@ def export_my_data(
 def me(user: User = Depends(current_user)):
     return Me(user_id=user.id, username=user.username,
               display_name=user.display_name, is_admin=bool(user.is_admin),
-              data_source=user.data_source or "health_connect")
+              data_source=user.data_source or "health_connect",
+              cycle_tracking=bool(user.cycle_tracking))

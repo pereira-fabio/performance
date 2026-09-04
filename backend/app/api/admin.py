@@ -20,7 +20,7 @@ from backend.app.core.backup import list_backups, run_once, prune, _settings
 from backend.app.core.database import get_db
 from backend.app.models.models import (
     User, AuthToken, Activity, DailyHealth, UserProfile, BestEffort,
-    ActivitySplit, ActivityStream,
+    ActivitySplit, ActivityStream, CycleEntry,
 )
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
@@ -137,6 +137,10 @@ def delete_user(
         db.query(Activity).filter(Activity.user_id == target.id).delete(synchronize_session=False)
     db.query(DailyHealth).filter(DailyHealth.user_id == target.id).delete(synchronize_session=False)
     db.query(UserProfile).filter(UserProfile.user_id == target.id).delete(synchronize_session=False)
+    # Deleted explicitly rather than left to the foreign key: SQLite does not
+    # enforce ON DELETE CASCADE unless the pragma is set, so these rows would
+    # otherwise outlive the account that owned them.
+    db.query(CycleEntry).filter(CycleEntry.user_id == target.id).delete(synchronize_session=False)
     db.query(AuthToken).filter(AuthToken.user_id == target.id).delete(synchronize_session=False)
     db.query(User).filter(User.id == target.id).delete(synchronize_session=False)
     db.commit()

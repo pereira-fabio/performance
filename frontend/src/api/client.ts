@@ -2,7 +2,7 @@ import axios from 'axios';
 import {
   Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData,
   AdminAccount, AdminOverview, BackupFile, PeriodReport, ReportPeriodOption,
-  TrainingCalendar,
+  TrainingCalendar, CycleSummary, CycleCalendarMonth,
 } from '../types';
 import { loadSession, saveSession } from '../lib/auth';
 
@@ -95,7 +95,7 @@ export const deleteAccount = async (password: string): Promise<void> => {
 
 export interface Me {
   user_id: string; username: string; display_name?: string | null;
-  is_admin: boolean; data_source: string;
+  is_admin: boolean; data_source: string; cycle_tracking?: boolean;
 }
 
 /**
@@ -307,3 +307,22 @@ export const downloadReportPdf = async (
 
 export const getTrainingCalendar = async (month?: string): Promise<TrainingCalendar> =>
   (await api.get<TrainingCalendar>('/reports/calendar', { params: { month } })).data;
+
+// --------------------------------------------------------------- cycle ---
+// Off by default and per account. Nothing here is sent anywhere but this
+// server, and the coach is deliberately never given it.
+
+export const getCycleSummary = async (): Promise<CycleSummary> =>
+  (await api.get<CycleSummary>('/cycle')).data;
+
+export const setCycleTracking = async (enabled: boolean): Promise<{ enabled: boolean }> =>
+  (await api.put('/cycle/enabled', { enabled })).data;
+
+export const getCycleCalendar = async (month?: string): Promise<CycleCalendarMonth> =>
+  (await api.get<CycleCalendarMonth>('/cycle/calendar', { params: { month } })).data;
+
+export const logCycleDay = async (date: string, flow?: string | null) =>
+  (await api.put('/cycle/day', { date, flow: flow ?? null })).data;
+
+export const unlogCycleDay = async (date: string) =>
+  (await api.delete('/cycle/day', { params: { date } })).data;

@@ -38,6 +38,9 @@ export const App: React.FC = () => {
   const [session, setSession] = useState(() => loadSession());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [recap, setRecap] = useState<'week' | 'month' | 'year' | null>(null);
+  // Incremented whenever settings are saved, so views that read a setting
+  // directly from the server pick the change up without a full reload.
+  const [settingsSaves, setSettingsSaves] = useState(0);
 
   const load = async () => {
     setRefreshing(true);
@@ -154,7 +157,8 @@ export const App: React.FC = () => {
           </div>
         )}
         {tab === 'home' ? (
-          <HomeView data={home} onTab={setTab} onOpenRecap={() => setRecap('week')} />
+          <HomeView data={home} onTab={setTab} onOpenRecap={() => setRecap('week')}
+                    cycleKey={settingsSaves} />
         ) : (
           <SportView tab={tab} activities={byTab[tab]} summary={summary}
                      pmc={pmc} records={records} onSelect={openActivity} />
@@ -173,7 +177,7 @@ export const App: React.FC = () => {
       <AdminModal isOpen={adminOpen} onClose={() => setAdminOpen(false)}
                   currentUserId={session?.user_id} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
-                        onUpdated={load} activityCount={activities.length}
+                        onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }} activityCount={activities.length}
                         onDeleted={() => { setSettingsOpen(false); setSession(null); }}
                         dataSource={session?.data_source} />
       <ImportModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}

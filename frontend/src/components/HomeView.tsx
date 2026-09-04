@@ -7,6 +7,7 @@ import {
 import { Card, Stat, StatGrid, Section, Empty } from './Stat';
 import { CoachNoteCard } from './CoachNote';
 import { LastWeekCard } from './LastWeekCard';
+import { CycleCard } from './CycleView';
 import { duration, SPORTS, SportKey } from '../lib/format';
 
 const ATTRIBUTE_LABELS: Record<string, string> = {
@@ -28,7 +29,9 @@ export const HomeView: React.FC<{
   data: HomeData | null;
   onTab: (t: SportKey) => void;
   onOpenRecap?: () => void;
-}> = ({ data, onTab, onOpenRecap }) => {
+  /** Bumped when settings change, so the card re-reads whether it is on. */
+  cycleKey?: number;
+}> = ({ data, onTab, onOpenRecap, cycleKey }) => {
   if (!data || data.empty) {
     return <Empty>Nothing recorded yet. Sync from your phone to get started.</Empty>;
   }
@@ -85,6 +88,8 @@ export const HomeView: React.FC<{
       </Card>
 
       {onOpenRecap && <LastWeekCard onOpen={onOpenRecap} />}
+
+      <CycleCard refreshKey={cycleKey} />
 
       <CoachNoteCard title="This week so far" />
 

@@ -9,7 +9,7 @@ from backend.app.core.migrations import migrate_to_accounts
 # Import models to ensure they are registered with Base.metadata
 from backend.app.models import models
 from backend.app.api import (
-    auth, admin, coach, connections, sync, activities, metrics, reports,
+    auth, admin, coach, connections, cycle, sync, activities, metrics, reports,
     settings as settings_api,
 )
 
@@ -93,6 +93,7 @@ app.include_router(sync.router, prefix=settings.API_V1_STR)
 app.include_router(activities.router, prefix=settings.API_V1_STR)
 app.include_router(metrics.router, prefix=settings.API_V1_STR)
 app.include_router(reports.router, prefix=settings.API_V1_STR)
+app.include_router(cycle.router, prefix=settings.API_V1_STR)
 app.include_router(settings_api.router, prefix=settings.API_V1_STR)
 
 @app.get("/health")

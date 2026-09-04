@@ -25,6 +25,9 @@ class User(Base):
     # How this athlete gets data in. Android reads Health Connect directly;
     # everyone else imports files their watch platform exports.
     data_source = Column(String(32), default="health_connect")
+    # Off unless asked for: nobody should have to look at a feature about their
+    # body that they did not turn on.
+    cycle_tracking = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -240,6 +243,29 @@ class DailyHealth(Base):
     readiness_score = Column(Float, nullable=True) # 0 - 100 calculated recovery score
     
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CycleEntry(Base):
+    """
+    One logged day of a menstrual period.
+
+    Days are stored individually rather than as a start-and-end pair. That is
+    what someone actually records -- a tap on a day -- it survives a flow that
+    pauses and resumes, and a mistake is corrected by untapping the day rather
+    than editing a range. Cycle boundaries are derived from the days, so they
+    stay correct when the days change.
+    """
+    __tablename__ = "cycle_entries"
+
+    user_id = Column(String(64), ForeignKey("users.id", ondelete="CASCADE"),
+                     primary_key=True, index=True)
+    date = Column(Date, primary_key=True, index=True)
+    # spotting | light | medium | heavy. Optional: a day logged with no flow
+    # recorded still counts as a day of the period.
+    flow = Column(String(16), nullable=True)
+    symptoms = Column(JSON, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class UserProfile(Base):

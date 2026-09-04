@@ -57,6 +57,7 @@ _ADDED_COLUMNS = {
     "users": [
         ("is_admin", "BOOLEAN DEFAULT 0"),
         ("data_source", "VARCHAR(32) DEFAULT 'health_connect'"),
+        ("cycle_tracking", "BOOLEAN DEFAULT 0"),
     ],
     "user_profile": [
         ("height_cm", "FLOAT"),

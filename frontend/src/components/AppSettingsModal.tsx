@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, button, input } from './Modal';
-import { recalculateMetrics, exportMyData, deleteAccount, setDataSource } from '../api/client';
+import {
+  recalculateMetrics, exportMyData, deleteAccount, setDataSource,
+  getCycleSummary, setCycleTracking,
+} from '../api/client';
 import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
 import { ConnectionCard } from './ConnectionCard';
@@ -23,6 +26,14 @@ export const AppSettingsModal: React.FC<{
   const [password, setPassword] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [source, setSource] = useState(dataSource ?? 'health_connect');
+  const [cycleOn, setCycleOn] = useState<boolean | null>(null);
+
+  // Read when the panel opens rather than held in the session, so the switch
+  // always shows what the server actually has.
+  useEffect(() => {
+    if (!isOpen) return;
+    getCycleSummary().then((c) => setCycleOn(c.enabled)).catch(() => setCycleOn(null));
+  }, [isOpen]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings" subtitle="Appearance and maintenance">
@@ -98,6 +109,35 @@ export const AppSettingsModal: React.FC<{
           <div>
             <div className="text-xs text-muted mb-2">Automatic sync</div>
             <ConnectionCard onChanged={onUpdated} />
+          </div>
+        )}
+
+        {cycleOn !== null && (
+          <div>
+            <div className="text-xs text-muted mb-2">Cycle tracking</div>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={cycleOn} className="mt-0.5 accent-accent"
+                     onChange={async (e) => {
+                       const next = e.target.checked;
+                       setCycleOn(next);
+                       try {
+                         await setCycleTracking(next);
+                         onUpdated();
+                       } catch {
+                         setCycleOn(!next);
+                         setNote('Could not change that setting.');
+                       }
+                     }} />
+              <span className="text-[13px] text-fg">
+                Track your menstrual cycle
+                <span className="block text-2xs text-faint mt-0.5">
+                  Adds a cycle section to your home page and a calendar to log period days,
+                  with the next one predicted from the ones before it. Switching this off
+                  hides it and keeps what you logged; it never leaves this server, and it is
+                  never sent to the coach.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 
