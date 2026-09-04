@@ -17,11 +17,12 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.auth import current_user
 from backend.app.services.avatars import remove_avatar
+from backend.app.services import garmin_connector
 from backend.app.core.backup import list_backups, run_once, prune, _settings
 from backend.app.core.database import get_db
 from backend.app.models.models import (
     User, AuthToken, Activity, DailyHealth, UserProfile, BestEffort,
-    ActivitySplit, ActivityStream, CycleEntry,
+    ActivitySplit, ActivityStream, CycleEntry, DeviceConnection, Insight,
 )
 
 router = APIRouter(prefix="/admin", tags=["Administration"])
@@ -142,7 +143,15 @@ def delete_user(
     # enforce ON DELETE CASCADE unless the pragma is set, so these rows would
     # otherwise outlive the account that owned them.
     db.query(CycleEntry).filter(CycleEntry.user_id == target.id).delete(synchronize_session=False)
+    # Written commentary about this athlete's training, and the link to their
+    # watch account -- which holds the email it was linked with.
+    db.query(Insight).filter(Insight.user_id == target.id).delete(synchronize_session=False)
+    db.query(DeviceConnection).filter(
+        DeviceConnection.user_id == target.id).delete(synchronize_session=False)
     remove_avatar(target.id)
+    # The session tokens are files, not rows, so no cascade would ever have
+    # reached them. They stay valid against Garmin until they expire.
+    garmin_connector.disconnect(target.id)
     db.query(AuthToken).filter(AuthToken.user_id == target.id).delete(synchronize_session=False)
     db.query(User).filter(User.id == target.id).delete(synchronize_session=False)
     db.commit()

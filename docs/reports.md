@@ -56,36 +56,12 @@ Details worth knowing:
 
 ## The coach
 
-Optional written commentary from a language model **running on your own hardware**. Set `OLLAMA_URL` to your Ollama instance; leave it empty and the feature disappears entirely.
+Recaps and PDF reports can carry a written review from a language model **running on your own hardware**. It is given only the figures in the report, already formatted, and told not to produce a number that is not in front of it — it phrases, it never calculates.
 
-It appears in three places: under an activity, on the home page for the current week, and inside a recap or PDF as a review of the finished period.
+A review of a finished period uses a longer prompt than a per-activity note, because it has a comparison to make. It is cached against the facts it describes, so a finished week is narrated once rather than on every visit.
 
-### What it is allowed to do
-
-It **phrases**; it never calculates. It is given only figures this server has already computed, pre-formatted the way they should be read aloud, and is told not to produce a number that is not in front of it.
-
-The system prompt forbids medical advice, forbids suggesting illness or injury, and forbids prescribing training. It may say a week was heavy or a session was easy; it may not write next week's plan.
-
-Notes are cached against the facts they describe, so a finished week does not get re-narrated on every visit. The prompt is part of the cache key, so rewording it regenerates rather than serving text written under the old instructions.
-
-### Three things testing changed
-
-Real models got these wrong repeatedly, so the brief handles them before the model sees anything:
-
-- **Data-quality fields had to be removed entirely.** Given `heart_rate_coverage_pct: 97`, every model tested read it as effort — *"you pushed to 97% of maximum"* — rather than as how much of the session was measured. Coverage now decides server-side whether a metric is trustworthy enough to include, and is then never mentioned.
-- **Small models should not do arithmetic.** Given `74` minutes, one model wrote "just under an hour". Every value now arrives pre-formatted.
-- **A leading minus is read as a small number,** and pace "improving" by falling is read backwards. Directions are words now: "down by 40 m, which is 11 percent less", "quicker than the period before".
-
-### What it never sees
+Turn it off by leaving `OLLAMA_URL` empty; leave it off and the report is simply generated without a note.
 
 **Cycle tracking data is never sent to the coach**, and no cycle figure enters a recap or a PDF.
 
-### Failure
-
-An unreachable or slow model leaves everything exactly as it was. Nothing in your training data depends on it. If a note cannot be written, the last one is shown; if there is none, the section does not appear.
-
-```bash
-curl -s http://localhost:8000/api/v1/coach/status -H "Authorization: Bearer <token>"
-```
-
-Anything up to about 7B parameters is fine on 8 GB of VRAM. `qwen2.5:7b` is the default.
+See **[The local language model](coach.md)** for setup, model choice, exactly what data is sent, and the prompt rules.

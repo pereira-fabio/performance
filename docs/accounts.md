@@ -42,9 +42,11 @@ For administrators, under **Menu → Admin**.
 - **Users** — grant or revoke administrator, activate or deactivate, delete
 - **Backups** — list with age and size, create one now, prune old ones
 
-Deleting an account removes its activities, streams, splits, best efforts, daily health, profile, cycle entries, sessions and picture.
+Deleting an account removes its activities, streams, splits, best efforts, daily health, profile, cycle entries, coach notes, watch link, sessions, profile picture and stored Garmin session tokens.
 
 That deletion is written out explicitly, row by row, rather than left to the foreign keys. **SQLite does not enforce `ON DELETE CASCADE` unless the pragma is set**, so relying on the constraint would leave orphaned rows behind — including the most personal ones.
+
+Two of the things it removes are not rows at all and no cascade would ever have reached them: the profile picture, and the Garmin session tokens, which stay valid against Garmin until they expire.
 
 ---
 
@@ -126,7 +128,7 @@ Arithmetic on the dates you entered. **Not contraception, not a fertility test, 
 
 ### Boundaries
 
-- **The coach never receives any of it.** No cycle figure enters a recap or a PDF.
+- **The coach never receives any of it.** No cycle figure enters a recap or a PDF. See [what the model is sent](coach.md#exactly-what-is-sent).
 - Switching it off **hides it and keeps what you logged**. A switch is not a delete.
 - It is offered to every account rather than gated on the profile's sex field, which many accounts will never have filled in.
 - Deleting an account deletes it.
@@ -141,6 +143,7 @@ Arithmetic on the dates you entered. **Not contraception, not a fertility test, 
 | Backups | `$DATA_DIR/backups` | — |
 | Profile pictures | `$DATA_DIR/avatars` | No |
 | Garmin session tokens | `$DATA_DIR/connections` | No |
+| Coach notes | SQLite, `insights` table | Yes |
 | Terrain tiles | `$DEM_DIR` | No |
 
 Nothing is sent anywhere except an outbound connection to Garmin if you link an account, and OpenStreetMap tiles for the map — your route is drawn in your browser, and the coordinates are not sent to them.

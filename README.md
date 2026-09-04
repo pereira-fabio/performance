@@ -20,7 +20,7 @@ Two principles run through the whole thing:
 | **Analyse** | Aerobic decoupling, grade-adjusted pace, rTSS, TRIMP, heart-rate zones, best efforts, training effect, recovery |
 | **Track** | Banister fitness/fatigue/form curve, personal records, XP and levels, achievements |
 | **Review** | Weekly, monthly and yearly recaps with period-on-period comparison; printable PDF reports |
-| **Comment** | Optional written coaching from a language model running on your own hardware |
+| **Comment** | Optional written coaching from a language model running on your own hardware — it phrases figures, it never calculates them |
 | **Manage** | Multiple accounts with separate data, an admin console, automatic dated backups |
 | **Personal** | Optional menstrual cycle tracking, per account and off by default |
 
@@ -58,7 +58,8 @@ Full deployment instructions, including Proxmox and TrueNAS, are in [Installatio
 | [Installation](docs/installation.md) | Proxmox LXC, TrueNAS storage, Docker Compose, every configuration variable |
 | [Data sources](docs/data-sources.md) | Health Connect, Garmin, file import, and how ingestion handles duplicates and bad data |
 | [Metrics](docs/metrics.md) | Every figure the app computes, the formula behind it, and when it refuses to compute one |
-| [Reports and coaching](docs/reports.md) | Weekly recaps, PDF reports, and the local language model |
+| [Reports](docs/reports.md) | Weekly recaps and printable PDF reports |
+| [The local language model](docs/coach.md) | Setup, model choice, exactly what is sent to it, and what it is never given |
 | [Accounts and privacy](docs/accounts.md) | Accounts, the admin console, backups, cycle tracking, and exactly what is stored where |
 | [API reference](docs/api.md) | Every endpoint |
 | [Development](docs/development.md) | Repository layout, building the app, deploying, maintenance scripts, troubleshooting |
