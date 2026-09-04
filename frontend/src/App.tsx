@@ -135,7 +135,8 @@ export const App: React.FC = () => {
             onSignOut={async () => { await logout(); setSession(null); }} />
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={load} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
-                        onUpdated={load} activityCount={activities.length} />
+                        onUpdated={load} activityCount={activities.length}
+                        onDeleted={() => { setSettingsOpen(false); setSession(null); }} />
       <GPXUploadModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}
                       onUploaded={(a) => { load(); openActivity(a); }} />
     </>

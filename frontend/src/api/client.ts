@@ -81,6 +81,12 @@ export const exportMyData = async (includeStreams: boolean): Promise<void> => {
   URL.revokeObjectURL(url);
 };
 
+export const deleteAccount = async (password: string): Promise<void> => {
+  // Sent in the body of a DELETE, which axios needs told about explicitly.
+  await api.delete('/auth/me', { data: { password, confirm: 'DELETE' } });
+  saveSession(null);
+};
+
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }
 };

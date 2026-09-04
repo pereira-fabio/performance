@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, button } from './Modal';
-import { recalculateMetrics, exportMyData } from '../api/client';
+import { Modal, button, input } from './Modal';
+import { recalculateMetrics, exportMyData, deleteAccount } from '../api/client';
 import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
 
@@ -11,11 +11,15 @@ const OPTIONS: { value: ThemePref; label: string }[] = [
 ];
 
 export const AppSettingsModal: React.FC<{
-  isOpen: boolean; onClose: () => void; onUpdated: () => void; activityCount: number;
-}> = ({ isOpen, onClose, onUpdated, activityCount }) => {
+  isOpen: boolean; onClose: () => void; onUpdated: () => void;
+  activityCount: number; onDeleted: () => void;
+}> = ({ isOpen, onClose, onUpdated, activityCount, onDeleted }) => {
   const [theme, setTheme] = useState<ThemePref>(getTheme());
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings" subtitle="Appearance and maintenance">
@@ -93,6 +97,41 @@ export const AppSettingsModal: React.FC<{
             <span className="tnum text-fg">{activityCount}</span></div>
           <div className="flex justify-between"><span>Data location</span>
             <span className="text-fg">This server only</span></div>
+        </div>
+
+        <div className="pt-4 border-t border-line">
+          <div className="text-xs text-negative mb-2">Danger zone</div>
+          {!confirming ? (
+            <button onClick={() => { setConfirming(true); setDeleteError(null); }}
+              className={`${button} w-full bg-surface border border-line text-negative hover:border-negative`}>
+              Delete my account
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted">
+                This erases your account and all {activityCount} activities permanently.
+                Export your data first if you want to keep it. Existing server backups
+                still hold this data until they are pruned.
+              </p>
+              <input type="password" className={input} placeholder="Confirm your password"
+                     value={password} onChange={(e) => setPassword(e.target.value)} />
+              {deleteError && <p className="text-xs text-negative">{deleteError}</p>}
+              <div className="flex gap-2">
+                <button onClick={() => { setConfirming(false); setPassword(''); }}
+                        className={`${button} flex-1 text-muted hover:text-fg`}>Cancel</button>
+                <button disabled={busy || !password}
+                  onClick={async () => {
+                    setBusy(true); setDeleteError(null);
+                    try { await deleteAccount(password); onDeleted(); }
+                    catch (e) { setDeleteError(describeError(e, 'Could not delete the account.')); }
+                    finally { setBusy(false); }
+                  }}
+                  className={`${button} flex-1 bg-negative text-white hover:opacity-90`}>
+                  {busy ? 'Deleting…' : 'Delete permanently'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Modal>

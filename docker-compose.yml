@@ -40,7 +40,8 @@ services:
     environment:
       - DATABASE_URL=sqlite:////db/peakpace.db
       - BACKUP_DIR=/data/backups
-      - BACKUP_INTERVAL_SEC=3600
+      # Daily. The database changes a few times a week, not hourly.
+      - BACKUP_INTERVAL_SEC=86400
       - MAX_BACKUPS=30
     volumes:
       - peakpace_db:/db

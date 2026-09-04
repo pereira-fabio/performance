@@ -20,8 +20,14 @@ up after itself rather than leaving a misleading artefact.
 
     python /data/backup.py            # one backup
     python /data/backup.py --loop     # run forever, BACKUP_INTERVAL_SEC apart
+
+Restoring:
+
+    gunzip -c /data/backups/peakpace_<stamp>.db.gz > /tmp/restore.db
+    docker cp /tmp/restore.db performance-backend:/db/peakpace.db
 """
 import glob
+import gzip
 import os
 import shutil
 import sqlite3
@@ -34,8 +40,16 @@ DB = os.getenv("DATABASE_URL", "sqlite:////db/peakpace.db").replace("sqlite:///"
 BACKUP_DIR = os.getenv("BACKUP_DIR", "/data/backups")
 STAMP_FILE = os.getenv("BACKUP_STAMP", "/db/.last_backup_mtime")
 MAX_BACKUPS = int(os.getenv("MAX_BACKUPS", "30"))
-INTERVAL_SEC = int(os.getenv("BACKUP_INTERVAL_SEC", "3600"))
-MIN_PLAUSIBLE_BYTES = 4096
+# Daily. Hourly was writing a full copy of the whole database every hour for
+# data that changes a few times a week.
+INTERVAL_SEC = int(os.getenv("BACKUP_INTERVAL_SEC", "86400"))
+MIN_PLAUSIBLE_BYTES = 1024
+
+# Snapshots are compressed rather than made incremental. A SQLite file of
+# mostly JSON compresses about five to one, and every snapshot stays
+# independently restorable -- an incremental chain is worthless if one link in
+# it is lost, which is exactly the situation a backup exists for.
+COMPRESS = os.getenv("BACKUP_COMPRESS", "1") not in ("0", "false", "no")
 
 
 def log(msg):
@@ -65,6 +79,14 @@ def record_stamp():
         log(f"Could not write stamp file: {exc}")
 
 
+def _all_backups():
+    """Every snapshot, compressed or not, oldest first."""
+    return sorted(
+        glob.glob(os.path.join(BACKUP_DIR, "peakpace_*.db"))
+        + glob.glob(os.path.join(BACKUP_DIR, "peakpace_*.db.gz"))
+    )
+
+
 def clear_empty():
     """Remove worthless 0-byte files left by the previous implementations.
 
@@ -72,7 +94,7 @@ def clear_empty():
     backups instead.
     """
     removed = 0
-    for path in glob.glob(os.path.join(BACKUP_DIR, "peakpace_*.db")):
+    for path in _all_backups():
         try:
             if os.path.getsize(path) < MIN_PLAUSIBLE_BYTES:
                 os.remove(path)
@@ -85,7 +107,7 @@ def clear_empty():
 
 def prune():
     clear_empty()
-    backups = sorted(glob.glob(os.path.join(BACKUP_DIR, "peakpace_*.db")))
+    backups = _all_backups()
     excess = len(backups) - MAX_BACKUPS
     if excess > 0:
         for path in backups[:excess]:
@@ -106,7 +128,7 @@ def run_once(force: bool = False) -> bool:
 
     os.makedirs(BACKUP_DIR, exist_ok=True)
     stamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-    final = os.path.join(BACKUP_DIR, f"peakpace_{stamp}.db")
+    final = os.path.join(BACKUP_DIR, f"peakpace_{stamp}.db" + (".gz" if COMPRESS else ""))
 
     tmp_fd, tmp_path = tempfile.mkstemp(prefix="peakpace_backup_", suffix=".db", dir="/tmp")
     os.close(tmp_fd)
@@ -144,12 +166,18 @@ def run_once(force: bool = False) -> bool:
 
         # copyfile, not copy2: CIFS refuses the utime() that copy2 performs
         # after writing, which would fail the run despite the data being fine.
-        shutil.copyfile(tmp_path, final)
-        if os.path.getsize(final) != size:
-            raise RuntimeError("copied file size does not match the snapshot")
+        if COMPRESS:
+            with open(tmp_path, "rb") as raw, gzip.open(final, "wb", compresslevel=6) as out:
+                shutil.copyfileobj(raw, out, length=1024 * 1024)
+        else:
+            shutil.copyfile(tmp_path, final)
+            if os.path.getsize(final) != size:
+                raise RuntimeError("copied file size does not match the snapshot")
 
-        log(f"Backup OK: {final} ({size / 1024:.1f} KB, {activities} activities "
-            f"across {accounts} account(s))")
+        written = os.path.getsize(final)
+        ratio = f", {size / written:.1f}x smaller" if COMPRESS and written else ""
+        log(f"Backup OK: {os.path.basename(final)} ({written / 1024 / 1024:.1f} MB{ratio}, "
+            f"{activities} activities across {accounts} account(s))")
         record_stamp()
         prune()
         return True

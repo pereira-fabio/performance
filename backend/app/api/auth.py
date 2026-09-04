@@ -169,6 +169,60 @@ def logout(authorization: Optional[str] = Header(None), db: Session = Depends(ge
     return {"status": "signed out"}
 
 
+class DeleteRequest(BaseModel):
+    password: str
+    # Typed out in full, so a stray click cannot destroy a year of training.
+    confirm: str = Field(description='Must be the word DELETE')
+
+
+@router.delete("/me")
+def delete_account(
+    body: DeleteRequest,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Erase this account and everything belonging to it.
+
+    Deletion is explicit rather than relying on foreign keys: SQLite only
+    enforces ON DELETE CASCADE when the connection asks it to, and this is not
+    an operation to leave depending on a pragma being set.
+
+    Backups are untouched by design. Someone who deletes an account today
+    should not silently un-delete it by restoring last week, so the operator
+    prunes backups on their own schedule.
+    """
+    from backend.app.models.models import ActivityStream, ActivitySplit
+
+    if body.confirm.strip().upper() != "DELETE":
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Type DELETE to confirm')
+    if not verify_password(body.password, user.password_hash):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect password")
+
+    ids = [a.id for a in db.query(Activity.id).filter(Activity.user_id == user.id).all()]
+    removed = {"activities": len(ids)}
+
+    if ids:
+        for model in (BestEffort, ActivitySplit, ActivityStream):
+            db.query(model).filter(model.activity_id.in_(ids)).delete(synchronize_session=False)
+        db.query(Activity).filter(Activity.user_id == user.id).delete(synchronize_session=False)
+
+    removed["daily_health"] = (
+        db.query(DailyHealth).filter(DailyHealth.user_id == user.id)
+        .delete(synchronize_session=False)
+    )
+    db.query(UserProfile).filter(UserProfile.user_id == user.id).delete(synchronize_session=False)
+    db.query(AuthToken).filter(AuthToken.user_id == user.id).delete(synchronize_session=False)
+    db.query(User).filter(User.id == user.id).delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "status": "deleted",
+        "removed": removed,
+        "note": "Existing backups still contain this data until they are pruned.",
+    }
+
+
 @router.get("/export")
 def export_my_data(
     include_streams: bool = True,
