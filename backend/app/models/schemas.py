@@ -136,14 +136,20 @@ class ActivityDetailOut(ActivitySummaryOut):
     stream_data: Optional[Dict[str, Any]] = None
 
 class UserProfileSchema(BaseModel):
-    id: int = 1
+    # Profile ids became UUID strings when accounts were introduced. Declaring
+    # this an int made every read of the profile fail validation, which took
+    # the whole profile screen down: the row was created and then could not be
+    # serialised back out.
+    id: Optional[str] = None
     name: str
-    gender: str
+    gender: str = "unspecified"
     max_hr: int
     resting_hr: int
     lthr: int
     threshold_pace_sec: float
     weight_kg: float
+    height_cm: Optional[float] = None
+    birth_date: Optional[date] = None
     hr_zones: Optional[Dict[str, List[int]]] = None
     pace_zones: Optional[Dict[str, List[float]]] = None
 

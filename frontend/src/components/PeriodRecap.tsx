@@ -5,6 +5,7 @@ import {
 import { PeriodReport, Delta, ReportSession } from '../types';
 import { Card, Stat, StatGrid, Section, Empty } from './Stat';
 import { PeriodNoteCard } from './CoachNote';
+import { WeekPicker } from './WeekPicker';
 import { downloadReportPdf, getWeekReport, getPeriodReport } from '../api/client';
 import { pace, duration, dateLabel } from '../lib/format';
 import { describeError } from '../lib/errors';
@@ -115,7 +116,10 @@ export const PeriodRecap: React.FC<{
   onBack: () => void;
   onSelectActivity?: (id: string) => void;
 }> = ({ kind, onBack, onSelectActivity }) => {
-  const [offset, setOffset] = useState(0);
+  // Identified by key rather than by how many steps back it is: a calendar
+  // jumps straight to a week, and counting arrow-presses to reach March is
+  // exactly what this replaced.
+  const [periodKey, setPeriodKey] = useState<string | undefined>(undefined);
   const [report, setReport] = useState<PeriodReport | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -124,13 +128,15 @@ export const PeriodRecap: React.FC<{
   useEffect(() => {
     let cancelled = false;
     setBusy(true);
-    const fetch = kind === 'week' ? getWeekReport(offset) : getPeriodReport(kind, undefined, offset);
+    const fetch = kind === 'week'
+      ? getWeekReport(0, periodKey)
+      : getPeriodReport(kind, periodKey, 0);
     fetch
       .then((r) => { if (!cancelled) { setReport(r); setError(null); } })
       .catch((e) => { if (!cancelled) setError(describeError(e, 'Could not load the recap')); })
       .finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; };
-  }, [kind, offset]);
+  }, [kind, periodKey]);
 
   const chart = useMemo(
     () => (report?.breakdown.rows ?? []).map((r) => ({
@@ -175,15 +181,22 @@ export const PeriodRecap: React.FC<{
       <div className="flex items-center justify-between gap-3 mb-5">
         <button onClick={onBack}
                 className="text-sm text-muted hover:text-fg transition shrink-0">← Back</button>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setOffset(offset + 1)} aria-label="Earlier"
-                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition">
+        <div className="flex items-center gap-1.5">
+          {/* The chevrons stay for the common case of nudging one week either
+              way; the calendar is for everything further than that. */}
+          <button onClick={() => report.previous_key && setPeriodKey(report.previous_key)}
+                  disabled={!report.previous_key} aria-label="Earlier week"
+                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
           </button>
-          <button onClick={() => setOffset(Math.max(0, offset - 1))} disabled={offset === 0}
-                  aria-label="Later"
-                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-30">
+          {kind === 'week' && (
+            <WeekPicker selected={report.key} label={report.label}
+                        onSelect={(key) => setPeriodKey(key)} />
+          )}
+          <button onClick={() => report.next_key && setPeriodKey(report.next_key)}
+                  disabled={!report.next_key} aria-label="Later week"
+                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
           </button>
@@ -257,7 +270,7 @@ export const PeriodRecap: React.FC<{
             </div>
           </Section>
 
-          <PeriodNoteCard kind={kind} offset={offset} />
+          <PeriodNoteCard kind={kind} periodKey={report.key} />
 
           <Section title="How it compares" flush>
             {hasComparison ? (

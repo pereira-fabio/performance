@@ -2,6 +2,7 @@ import axios from 'axios';
 import {
   Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData,
   AdminAccount, AdminOverview, BackupFile, PeriodReport, ReportPeriodOption,
+  TrainingCalendar,
 } from '../types';
 import { loadSession, saveSession } from '../lib/auth';
 
@@ -303,3 +304,6 @@ export const downloadReportPdf = async (
   // through its download bridge, and revoking immediately races it.
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 };
+
+export const getTrainingCalendar = async (month?: string): Promise<TrainingCalendar> =>
+  (await api.get<TrainingCalendar>('/reports/calendar', { params: { month } })).data;

@@ -256,6 +256,9 @@ class UserProfile(Base):
     lthr = Column(Integer, default=168) # Lactate Threshold HR
     threshold_pace_sec = Column(Float, default=240.0) # 4:00/km
     weight_kg = Column(Float, default=70.0)
+    height_cm = Column(Float, nullable=True)
+    # Stored as a date rather than an age, so it does not quietly go stale.
+    birth_date = Column(Date, nullable=True)
     
     # Custom zone configurations (JSON)
     hr_zones = Column(JSON, nullable=True) # {"z1": [0, 130], "z2": [131, 150], ...}

@@ -168,7 +168,7 @@ export interface AdminOverview {
 }
 
 export interface UserProfile {
-  id: number;
+  id?: string | null;
   name: string;
   gender: string;
   max_hr: number;
@@ -176,6 +176,9 @@ export interface UserProfile {
   lthr: number;
   threshold_pace_sec: number;
   weight_kg: number;
+  height_cm?: number | null;
+  /** ISO date. Stored rather than an age, so it does not go stale. */
+  birth_date?: string | null;
   hr_zones?: Record<string, [number, number]>;
   pace_zones?: Record<string, [number, number]>;
 }
@@ -276,4 +279,12 @@ export interface ReportPeriodOption {
   key: string;
   label: string;
   complete: boolean;
+}
+
+/** A month of training days, for picking a week off a calendar. */
+export interface TrainingCalendar {
+  month: string;
+  days: Record<string, { sessions: number; km: number; sports: string[] }>;
+  earliest: string | null;
+  today: string;
 }

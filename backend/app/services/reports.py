@@ -372,6 +372,47 @@ def build_report(db: Session, user_id: str, period: Period) -> Dict[str, Any]:
     }
 
 
+def training_calendar(db: Session, user_id: str, month: date) -> Dict[str, Any]:
+    """
+    Which days of a month were trained, for picking a week off a calendar.
+
+    Deliberately small: a day, what was done on it, and how far. Paging a
+    calendar should not drag a month of full activity records across the wire.
+    """
+    start = _midnight(month.replace(day=1))
+    end = _midnight((start + timedelta(days=32)).date().replace(day=1))
+
+    rows = (
+        db.query(Activity.start_time, Activity.sport_type, Activity.distance_meters)
+        .filter(Activity.user_id == user_id,
+                Activity.start_time >= start, Activity.start_time < end)
+        .all()
+    )
+    days: Dict[str, Dict[str, Any]] = {}
+    for start_time, sport, distance in rows:
+        entry = days.setdefault(start_time.date().isoformat(),
+                                {"sessions": 0, "km": 0.0, "sports": []})
+        entry["sessions"] += 1
+        entry["km"] += (distance or 0.0) / 1000.0
+        if sport not in entry["sports"]:
+            entry["sports"].append(sport)
+    for entry in days.values():
+        entry["km"] = round(entry["km"], 2)
+
+    # The bounds let the picker stop offering months that hold nothing.
+    first = (
+        db.query(Activity.start_time)
+        .filter(Activity.user_id == user_id)
+        .order_by(Activity.start_time.asc()).first()
+    )
+    return {
+        "month": f"{start:%Y-%m}",
+        "days": days,
+        "earliest": first[0].date().isoformat() if first else None,
+        "today": date.today().isoformat(),
+    }
+
+
 def available_periods(db: Session, user_id: str, kind: str) -> List[Dict[str, Any]]:
     """
     Which months or years the athlete actually has training in.

@@ -1,19 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { getUserProfile, updateUserProfile, recalculateMetrics } from '../api/client';
+import { getUserProfile, updateUserProfile } from '../api/client';
 import { Modal, Field, input, button } from './Modal';
+import { describeError } from '../lib/errors';
 
-export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onUpdated: () => void }> = ({
-  isOpen, onClose, onUpdated,
-}) => {
+/**
+ * The athlete's own numbers.
+ *
+ * Split into what is measured about the body and what is measured about
+ * training, because they are answered from different places: height and weight
+ * off a scale, thresholds off a test or a hard effort.
+ *
+ * Each field says what it actually affects. Several of them feed real
+ * calculations and one or two are only recorded, and quietly mixing the two
+ * would imply the app is doing more with them than it is.
+ */
+
+const GENDERS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'unspecified', label: 'Prefer not to say' },
+];
+
+const ageFrom = (iso?: string | null): number | null => {
+  if (!iso) return null;
+  const born = new Date(iso);
+  if (isNaN(born.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - born.getFullYear();
+  const monthDiff = now.getMonth() - born.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < born.getDate())) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+};
+
+/**
+ * Nes et al. (2013), which tracks measured maxima better than 220 - age across
+ * a wide age range. Offered as a starting point, never applied on its own: a
+ * measured maximum from a hard effort beats any formula, and silently
+ * overwriting one with an estimate would make the zones worse.
+ */
+const estimatedMaxHr = (age: number): number => Math.round(211 - 0.64 * age);
+
+export const SettingsModal: React.FC<{
+  isOpen: boolean; onClose: () => void; onUpdated: () => void;
+}> = ({ isOpen, onClose, onUpdated }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
-  useEffect(() => { if (isOpen) getUserProfile().then(setProfile).catch(() => setNote('Could not load profile')); }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen) return;
+    setNote(null);
+    getUserProfile()
+      .then(setProfile)
+      .catch((e) => setNote(describeError(e, 'Could not load your profile')));
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const paceText = (sec: number) => `${Math.floor(sec / 60)}:${Math.round(sec % 60).toString().padStart(2, '0')}`;
+  const set = <K extends keyof UserProfile>(key: K, value: UserProfile[K]) =>
+    setProfile((p) => (p ? { ...p, [key]: value } : p));
+
+  const paceText = (sec: number) =>
+    `${Math.floor(sec / 60)}:${Math.round(sec % 60).toString().padStart(2, '0')}`;
   const paceSec = (t: string) => {
     const [m, s] = t.split(':').map(Number);
     return isFinite(m) && isFinite(s) ? m * 60 + s : profile?.threshold_pace_sec ?? 240;
@@ -23,65 +72,112 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void; onU
     e.preventDefault();
     if (!profile) return;
     setSaving(true);
+    setNote(null);
     try {
       await updateUserProfile(profile);
       onUpdated();
       onClose();
-    } catch {
-      setNote('Save failed');
+    } catch (err) {
+      setNote(describeError(err, 'Could not save your profile'));
     } finally {
       setSaving(false);
     }
   };
 
+  const age = ageFrom(profile?.birth_date);
+  const suggestion = age != null ? estimatedMaxHr(age) : null;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Profile"
-           subtitle="Used for heart-rate zones, training load and threshold pace">
+           subtitle="Your numbers, and what they are used for">
       {!profile ? (
-        <p className="text-[13px] text-muted">Loading…</p>
+        <p className="text-[13px] text-muted">{note ?? 'Loading…'}</p>
       ) : (
-        <form onSubmit={save} className="space-y-4">
-          <Field label="Name">
-            <input className={input} value={profile.name}
-                   onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
-          </Field>
+        <form onSubmit={save} className="space-y-5">
+          <div className="space-y-3">
+            <Field label="Name">
+              <input className={input} value={profile.name}
+                     onChange={(e) => set('name', e.target.value)} />
+            </Field>
 
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Max HR">
-              <input type="number" className={input} value={profile.max_hr}
-                     onChange={(e) => setProfile({ ...profile, max_hr: +e.target.value })} />
-            </Field>
-            <Field label="Resting HR">
-              <input type="number" className={input} value={profile.resting_hr}
-                     onChange={(e) => setProfile({ ...profile, resting_hr: +e.target.value })} />
-            </Field>
-            <Field label="Threshold HR">
-              <input type="number" className={input} value={profile.lthr}
-                     onChange={(e) => setProfile({ ...profile, lthr: +e.target.value })} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date of birth"
+                     hint={age != null ? `${age} years old` : 'used to suggest your max heart rate'}>
+                <input type="date" className={input} value={profile.birth_date ?? ''}
+                       max={new Date().toISOString().slice(0, 10)}
+                       onChange={(e) => set('birth_date', e.target.value || null)} />
+              </Field>
+              <Field label="Sex" hint="changes the training-load formula">
+                <select className={input} value={profile.gender || 'unspecified'}
+                        onChange={(e) => set('gender', e.target.value)}>
+                  {GENDERS.map((g) => (
+                    <option key={g.value} value={g.value}>{g.label}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Height" hint="cm">
+                <input type="number" step="0.5" min="80" max="250" className={input}
+                       value={profile.height_cm ?? ''} placeholder="—"
+                       onChange={(e) =>
+                         set('height_cm', e.target.value === '' ? null : +e.target.value)} />
+              </Field>
+              <Field label="Weight" hint="kg">
+                <input type="number" step="0.1" min="25" max="300" className={input}
+                       value={profile.weight_kg}
+                       onChange={(e) => set('weight_kg', +e.target.value)} />
+              </Field>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Threshold pace" hint="min:sec per km">
+          <div className="pt-4 border-t border-line space-y-3">
+            <div className="text-xs text-muted">Training thresholds</div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Max HR">
+                <input type="number" min="100" max="230" className={input} value={profile.max_hr}
+                       onChange={(e) => set('max_hr', +e.target.value)} />
+              </Field>
+              <Field label="Resting HR">
+                <input type="number" min="25" max="120" className={input} value={profile.resting_hr}
+                       onChange={(e) => set('resting_hr', +e.target.value)} />
+              </Field>
+              <Field label="Threshold HR">
+                <input type="number" min="90" max="220" className={input} value={profile.lthr}
+                       onChange={(e) => set('lthr', +e.target.value)} />
+              </Field>
+            </div>
+
+            {suggestion != null && suggestion !== profile.max_hr && (
+              <button type="button" onClick={() => set('max_hr', suggestion)}
+                      className="text-2xs text-accent hover:underline">
+                Estimate {suggestion} bpm from your age
+              </button>
+            )}
+
+            <Field label="Threshold pace" hint="min:sec per km — the pace you could hold for an hour">
               <input className={input} defaultValue={paceText(profile.threshold_pace_sec)}
-                     onBlur={(e) => setProfile({ ...profile, threshold_pace_sec: paceSec(e.target.value) })} />
+                     onBlur={(e) => set('threshold_pace_sec', paceSec(e.target.value))} />
             </Field>
-            <Field label="Weight" hint="kg">
-              <input type="number" className={input} value={profile.weight_kg}
-                     onChange={(e) => setProfile({ ...profile, weight_kg: +e.target.value })} />
-            </Field>
+
+            <p className="text-2xs text-faint">
+              Heart-rate zones and training load come from these. Changing them affects new
+              activities and the fitness curve; the load already stored on past activities is
+              not recalculated.
+            </p>
           </div>
 
           {note && <p className="text-2xs text-negative">{note}</p>}
 
-          <div className="flex items-center justify-end pt-1">
-            <div className="flex gap-2">
-              <button type="button" onClick={onClose} className={`${button} text-muted hover:text-fg`}>Cancel</button>
-              <button type="submit" disabled={saving}
-                      className={`${button} bg-accent text-white hover:opacity-90`}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose}
+                    className={`${button} text-muted hover:text-fg`}>Cancel</button>
+            <button type="submit" disabled={saving}
+                    className={`${button} bg-accent text-white hover:opacity-90`}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
           </div>
         </form>
       )}

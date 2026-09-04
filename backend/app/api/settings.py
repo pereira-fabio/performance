@@ -40,11 +40,16 @@ def update_user_profile(payload: UserProfileSchema, db: Session = Depends(get_db
     profile.lthr = payload.lthr
     profile.threshold_pace_sec = payload.threshold_pace_sec
     profile.weight_kg = payload.weight_kg
+    profile.height_cm = payload.height_cm
+    profile.birth_date = payload.birth_date
+    # These belong to the profile, not the account. Assigned to the account they
+    # went nowhere: SQLAlchemy lets you set any attribute on an instance, so
+    # custom zones were silently discarded on every save.
     if payload.hr_zones:
-        user.hr_zones = payload.hr_zones
+        profile.hr_zones = payload.hr_zones
     if payload.pace_zones:
-        user.pace_zones = payload.pace_zones
-        
+        profile.pace_zones = payload.pace_zones
+
     db.commit()
     db.refresh(profile)
     return profile

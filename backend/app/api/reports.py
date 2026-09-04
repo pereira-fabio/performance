@@ -90,6 +90,24 @@ def periods(
     return reports.available_periods(db, user.id, kind)
 
 
+@router.get("/calendar")
+def calendar(
+    month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    """Training days in a month, so a week can be picked off a calendar."""
+    if month:
+        year, _, mon = month.partition("-")
+        try:
+            cursor = date(int(year), int(mon), 1)
+        except ValueError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                detail=f"{month!r} is not a valid month.")
+    else:
+        cursor = date.today().replace(day=1)
+    return reports.training_calendar(db, user.id, cursor)
+
+
 @router.get("/pdf")
 def report_pdf(
     kind: str = Query("month", pattern="^(week|month|year)$"),
