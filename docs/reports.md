@@ -36,11 +36,15 @@ Cycles outside plausible bounds are excluded from averages but kept in the histo
 
 ---
 
-## PDF reports
+## Monthly and yearly reports
 
-**Settings → Printable reports.** Choose a month or a year, with or without the written review, and download.
+**Menu → Stats → Reports.** Choose a month or a year and it is shown on screen, compared with the period before it; **Download PDF** saves the same report as a file.
+
+The report on screen and the report in the PDF are the same report. The download is a way to keep it, not a different document.
 
 The list of periods is built from your actual training rather than from the calendar, so there is no empty February to pick.
+
+Stats also holds what the home page used to: lifetime distance and time, the attribute profile, and where your time goes by sport. Those answer a slower question than "how is this week going", and they were being read every time anyone opened the app, above the week they could still change.
 
 A report contains headline figures, a distance chart, the full comparison against the previous period, the detail, best efforts, other sports, the coach's note if you asked for it, and a table of every run.
 
@@ -49,6 +53,7 @@ Details worth knowing:
 - **A year is charted by month**, not as 365 bars.
 - **Empty buckets are kept.** The gaps in a training month are as informative as the sessions.
 - **Against a period with no training**, the comparison is replaced by a sentence saying so, rather than a table of everything being up by its own value.
+- The written review is included in the PDF when a model is configured.
 - Rendered with ReportLab — pure Python, no system libraries — so the image builds anywhere.
 - Downloads work in the Android app too, through a bridge that reads the blob out of the page. Files land in Downloads and open in your PDF viewer.
 

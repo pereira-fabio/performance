@@ -55,3 +55,28 @@ export const bucketOf = (a: Activity): SportKey => {
  */
 export const whyMissing = (a: Activity, key: string): string | undefined =>
   a.data_quality?.unavailable?.[key];
+
+/**
+ * Weeks run Monday to Sunday, everywhere.
+ *
+ * A rolling seven days and a calendar week are different questions, and mixing
+ * them means "this week" changes meaning depending on which panel you read.
+ * Everything labelled a week uses these.
+ */
+export const weekStart = (d: Date = new Date()): Date => {
+  const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  out.setDate(out.getDate() - ((out.getDay() + 6) % 7));
+  return out;
+};
+
+/** ISO-8601 week key, matching the one the server uses to identify a week. */
+export const isoWeekKey = (d: Date = new Date()): string => {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // Sunday is 0 in JavaScript and 7 in ISO-8601, where the week starts Monday.
+  const day = t.getUTCDay() || 7;
+  // The year a week belongs to is the year holding its Thursday.
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const year = t.getUTCFullYear();
+  const week = Math.ceil(((t.getTime() - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+  return `${year}-W${String(week).padStart(2, '0')}`;
+};

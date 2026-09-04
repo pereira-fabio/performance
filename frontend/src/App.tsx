@@ -3,6 +3,7 @@ import { Shell } from './components/Shell';
 import { SportView } from './components/SportView';
 import { HomeView } from './components/HomeView';
 import { PeriodRecap } from './components/PeriodRecap';
+import { StatsView } from './components/StatsView';
 import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
@@ -11,7 +12,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { AdminModal } from './components/AdminModal';
 import { ImportModal } from './components/ImportModal';
 import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
-import { SportKey, TabKey, bucketOf } from './lib/format';
+import { SportKey, TabKey, bucketOf, isoWeekKey } from './lib/format';
 import {
   getActivities, getActivityDetail, getDashboardSummary,
   getPMCData, getPersonalRecords, deleteActivity, getHome, getUserProfile,
@@ -38,6 +39,10 @@ export const App: React.FC = () => {
   const [session, setSession] = useState(() => loadSession());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [recap, setRecap] = useState<'week' | 'month' | 'year' | null>(null);
+  // Which week the recap opens on: the current one from the home page's own
+  // panel, the last finished one from everywhere else.
+  const [recapKey, setRecapKey] = useState<string | undefined>(undefined);
+  const [statsOpen, setStatsOpen] = useState(false);
   // Incremented whenever settings are saved, so views that read a setting
   // directly from the server pick the change up without a full reload.
   const [settingsSaves, setSettingsSaves] = useState(0);
@@ -146,7 +151,7 @@ export const App: React.FC = () => {
     } else {
       window.scrollTo(0, 0);
     }
-  }, [selected?.id, recap, tab]);
+  }, [selected?.id, recap, statsOpen, tab]);
 
   const removeActivity = async (id: string) => {
     await deleteActivity(id);
@@ -170,12 +175,27 @@ export const App: React.FC = () => {
     );
   }
 
+  if (statsOpen) {
+    return (
+      <Shell tab={tab} onTab={(t) => { setStatsOpen(false); setTab(t); }} counts={counts}
+             onMenu={() => setMenuOpen(true)}
+             onRefresh={load} refreshing={refreshing}>
+        <StatsView data={home}
+                   onBack={() => { returnScroll.current = backTo.current; setStatsOpen(false); }}
+                   onSelectActivity={(id) => {
+                     const found = activities.find((a) => a.id === id);
+                     if (found) { setStatsOpen(false); openActivity(found, 0); }
+                   }} />
+      </Shell>
+    );
+  }
+
   if (recap) {
     return (
       <Shell tab={tab} onTab={(t) => { setRecap(null); setTab(t); }} counts={counts}
              onMenu={() => setMenuOpen(true)}
              onRefresh={load} refreshing={refreshing}>
-        <PeriodRecap kind={recap}
+        <PeriodRecap kind={recap} initialKey={recapKey}
                      onBack={() => { returnScroll.current = backTo.current; setRecap(null); }}
                      onSelectActivity={(id) => {
                        const found = activities.find((a) => a.id === id);
@@ -198,8 +218,17 @@ export const App: React.FC = () => {
           </div>
         )}
         {tab === 'home' ? (
-          <HomeView data={home} onTab={setTab}
-                    onOpenRecap={() => { backTo.current = window.scrollY; setRecap('week'); }}
+          <HomeView data={home}
+                    onOpenThisWeek={() => {
+                      backTo.current = window.scrollY;
+                      setRecapKey(isoWeekKey());
+                      setRecap('week');
+                    }}
+                    onOpenRecap={() => {
+                      backTo.current = window.scrollY;
+                      setRecapKey(undefined);
+                      setRecap('week');
+                    }}
                     cycleKey={settingsSaves} />
         ) : (
           <SportView tab={tab} activities={byTab[tab]} summary={summary}
@@ -210,6 +239,13 @@ export const App: React.FC = () => {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} athlete={athlete}
             onProfile={() => { setMenuOpen(false); setProfileOpen(true); }}
             onSettings={() => { setMenuOpen(false); setSettingsOpen(true); }}
+            onStats={() => {
+              setMenuOpen(false);
+              backTo.current = window.scrollY;
+              setSelected(null);
+              setRecap(null);
+              setStatsOpen(true);
+            }}
             isAdmin={session?.is_admin}
             onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }}
             onImport={() => { setMenuOpen(false); setUploadOpen(true); }}

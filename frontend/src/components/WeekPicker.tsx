@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { TrainingCalendar } from '../types';
 import { getTrainingCalendar } from '../api/client';
-import { SPORTS } from '../lib/format';
+import { SPORTS, isoWeekKey } from '../lib/format';
+
+export { isoWeekKey };
 
 /**
  * Pick a week off a calendar.
@@ -14,19 +16,6 @@ import { SPORTS } from '../lib/format';
  */
 
 const DAY_HEADS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-/** ISO-8601 week key, matching what the server uses to identify a week. */
-export const isoWeekKey = (d: Date): string => {
-  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  // Sunday is 0 in JavaScript and 7 in ISO-8601, where the week starts Monday.
-  const day = t.getUTCDay() || 7;
-  // The year a week belongs to is the year holding its Thursday.
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const year = t.getUTCFullYear();
-  const jan1 = Date.UTC(year, 0, 1);
-  const week = Math.ceil(((t.getTime() - jan1) / 86400000 + 1) / 7);
-  return `${year}-W${String(week).padStart(2, '0')}`;
-};
 
 const mondayOf = (d: Date): Date => {
   const out = new Date(d.getFullYear(), d.getMonth(), d.getDate());

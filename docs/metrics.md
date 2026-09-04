@@ -148,7 +148,7 @@ This is the one part of the app that is deliberately a game. It is computed from
 
 ## Attributes
 
-The radar chart on the home page scores five attributes out of 100 — endurance, speed, volume, consistency and recovery — from your recent training. It is a summary for orientation, not a measurement of anything physiological.
+The radar chart under **Stats** scores five attributes out of 100 — endurance, speed, volume, consistency and recovery — from your recent training. It is a summary for orientation, not a measurement of anything physiological.
 
 ---
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity, DashboardSummary, PMCPoint, BestEffort } from '../types';
-import { SportKey, SPORTS, km, duration } from '../lib/format';
+import { SportKey, SPORTS, km, duration, weekStart } from '../lib/format';
 import { Stat, StatGrid, Section, Empty, Card } from './Stat';
 import { ActivityRow } from './ActivityRow';
 import { PMCChart } from './PMCChart';
@@ -23,16 +23,20 @@ const formLabel = (tsb: number) => {
 };
 
 export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, records, onSelect }) => {
-  const totals = summary?.by_sport?.[tab === 'runs' ? 'running' : tab === 'walks' ? 'walking' : 'gym'];
-  const weekCount = activities.filter(
-    (a) => new Date(a.start_time) >= new Date(Date.now() - 7 * 864e5)
-  ).length;
-  const weekKm = activities
-    .filter((a) => new Date(a.start_time) >= new Date(Date.now() - 7 * 864e5))
-    .reduce((s, a) => s + (a.distance_meters || 0), 0);
-  const weekTime = activities
-    .filter((a) => new Date(a.start_time) >= new Date(Date.now() - 7 * 864e5))
-    .reduce((s, a) => s + (a.moving_time_sec || 0), 0);
+  // Monday to Sunday, not the last seven days. A rolling window answers a
+  // different question and slides out from under you every morning; a week you
+  // can point at on a calendar is the one people mean by "this week".
+  //
+  // Every figure here comes from the same set of activities, load included --
+  // the server's weekly total is a rolling one, and taking it from there would
+  // put four numbers from two different windows in one panel.
+  const since = weekStart();
+  const thisWeek = activities.filter((a) => new Date(a.start_time) >= since);
+  const weekCount = thisWeek.length;
+  const weekKm = thisWeek.reduce((s, a) => s + (a.distance_meters || 0), 0);
+  const weekTime = thisWeek.reduce((s, a) => s + (a.moving_time_sec || 0), 0);
+  const weekLoad = thisWeek.reduce((s, a) => s + (a.r_tss || 0), 0);
+  const weekLabel = since.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
   return (
     <>
@@ -45,8 +49,9 @@ export const SportView: React.FC<Props> = ({ tab, activities, summary, pmc, reco
           <Stat label="This week" value={duration(weekTime)}
                 sub={`${weekCount} ${weekCount === 1 ? 'session' : 'sessions'}`} />
         )}
-        <Stat label="Time" value={duration(weekTime)} sub="moving, 7 days" />
-        <Stat label="Load" value={totals ? Math.round(totals.load_7d) : '—'} sub="7-day total" />
+        <Stat label="Time" value={duration(weekTime)} sub="moving" />
+        <Stat label="Load" value={weekLoad > 0 ? Math.round(weekLoad) : '—'}
+              sub={`since Mon ${weekLabel}`} />
         {tab === 'runs' && summary && (
           <Stat
             label="Form"

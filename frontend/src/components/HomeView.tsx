@@ -1,49 +1,32 @@
 import React from 'react';
 import { HomeData } from '../types';
-import {
-  ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
-  PieChart, Pie, Cell, Tooltip,
-} from 'recharts';
-import { Card, Stat, StatGrid, Section, Empty } from './Stat';
+import { Card, Section, Empty } from './Stat';
 import { CoachNoteCard } from './CoachNote';
-import { LastWeekCard } from './LastWeekCard';
+import { ThisWeekCard, LastWeekCard } from './WeekCards';
 import { CycleCard } from './CycleView';
 import { Avatar } from './Avatar';
-import { duration, SPORTS, SportKey } from '../lib/format';
 
-const ATTRIBUTE_LABELS: Record<string, string> = {
-  endurance: 'Endurance',
-  speed: 'Speed',
-  volume: 'Volume',
-  consistency: 'Consistency',
-  recovery: 'Recovery',
-};
-
-const sportColor = (sport: string): string => {
-  const s = sport.toLowerCase();
-  if (['running', 'treadmill'].includes(s)) return 'var(--run)';
-  if (['walking', 'hiking'].includes(s)) return 'var(--walk)';
-  return 'var(--gym)';
-};
+/**
+ * The home page answers "how am I doing right now".
+ *
+ * Lifetime totals, the attribute profile and the split of time between sports
+ * answer a slower question and live under Stats. They are worth looking at
+ * occasionally; they were being looked at every time anyone opened the app,
+ * above the week they could still change.
+ */
 
 export const HomeView: React.FC<{
   data: HomeData | null;
-  onTab: (t: SportKey) => void;
   onOpenRecap?: () => void;
-  /** Bumped when settings change, so the card re-reads whether it is on. */
+  onOpenThisWeek?: () => void;
+  /** Bumped when settings change, so the cycle card re-reads whether it is on. */
   cycleKey?: number;
-}> = ({ data, onTab, onOpenRecap, cycleKey }) => {
+}> = ({ data, onOpenRecap, onOpenThisWeek, cycleKey }) => {
   if (!data || data.empty) {
     return <Empty>Nothing recorded yet. Sync from your phone to get started.</Empty>;
   }
 
-  const { progression: p, attributes, split, totals, form } = data;
-  const radar = Object.entries(attributes).map(([k, v]) => ({
-    axis: ATTRIBUTE_LABELS[k] ?? k, value: v,
-  }));
-  const donut = Object.entries(split).map(([sport, v]) => ({
-    name: sport, value: Number(v.hours.toFixed(1)), count: v.count, color: sportColor(sport),
-  }));
+  const { progression: p } = data;
   const earned = data.achievements.filter((a) => a.earned);
   const next = data.achievements.filter((a) => !a.earned)
                                 .sort((a, b) => b.progress - a.progress);
@@ -80,74 +63,13 @@ export const HomeView: React.FC<{
         </div>
       </Card>
 
-      <Card className="mt-4">
-        <StatGrid cols={4}>
-          <Stat label="Distance" value={totals.km.toFixed(0)} unit="km" sub="all time" />
-          <Stat label="Time" value={totals.hours.toFixed(0)} unit="h" sub={`${totals.activities} sessions`} />
-          <Stat label="Fitness" value={Math.round(form.ctl)} tone="accent" sub="running CTL" />
-          {/* The subtitle describes resting heart rate, so it is omitted
-              rather than saying "not recorded" under the VO2 max figure. */}
-          <Stat label="VO₂ max" value={data.vo2_max ? Math.round(data.vo2_max) : '—'}
-                sub={data.resting_hr ? `resting ${data.resting_hr} bpm` : undefined} />
-        </StatGrid>
-      </Card>
+      {onOpenThisWeek && <ThisWeekCard onOpen={onOpenThisWeek} />}
 
       {onOpenRecap && <LastWeekCard onOpen={onOpenRecap} />}
 
       <CycleCard refreshKey={cycleKey} />
 
       <CoachNoteCard title="This week so far" />
-
-      <div className="grid md:grid-cols-2 gap-4 mt-6">
-        <div>
-          <h2 className="text-sm font-bold text-fg-strong mb-3 px-1">Profile</h2>
-          <Card className="p-4">
-            <div className="h-60">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radar} outerRadius="72%">
-                  <PolarGrid stroke="var(--line)" />
-                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 11, fill: 'var(--muted)' }} />
-                  <Radar dataKey="value" stroke="var(--accent)" strokeWidth={2}
-                         fill="var(--accent)" fillOpacity={0.22} />
-                  <Tooltip contentStyle={{
-                    background: 'var(--bg)', border: '1px solid var(--line-strong)',
-                    borderRadius: 8, fontSize: 12, color: 'var(--fg)',
-                  }} formatter={(v: number) => [`${v} / 100`, '']} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </div>
-
-        <div>
-          <h2 className="text-sm font-bold text-fg-strong mb-3 px-1">Where the time goes</h2>
-          <Card className="p-4">
-            <div className="h-60 flex items-center">
-              <ResponsiveContainer width="60%" height="100%">
-                <PieChart>
-                  <Pie data={donut} dataKey="value" innerRadius="58%" outerRadius="88%"
-                       paddingAngle={2} stroke="none">
-                    {donut.map((d) => <Cell key={d.name} fill={d.color} />)}
-                  </Pie>
-                  <Tooltip contentStyle={{
-                    background: 'var(--bg)', border: '1px solid var(--line-strong)',
-                    borderRadius: 8, fontSize: 12, color: 'var(--fg)',
-                  }} formatter={(v: number, n: string) => [`${v} h`, n]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <ul className="flex-1 space-y-2">
-                {donut.map((d) => (
-                  <li key={d.name} className="flex items-center gap-2 text-xs">
-                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-                    <span className="capitalize text-fg flex-1">{d.name}</span>
-                    <span className="text-muted tnum">{d.value}h</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Card>
-        </div>
-      </div>
 
       <Section title="Achievements" flush
                aside={<span className="text-xs text-faint tnum">

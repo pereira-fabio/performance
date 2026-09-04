@@ -111,121 +111,31 @@ const SessionRow: React.FC<{ s: ReportSession; onSelect?: (id: string) => void }
   </button>
 );
 
-export const PeriodRecap: React.FC<{
-  kind: 'week' | 'month' | 'year';
-  onBack: () => void;
+/**
+ * The report itself, without the page around it.
+ *
+ * Separated so the same thing can be a page of its own with week navigation,
+ * or a panel inside Stats with a month and year picker -- one implementation
+ * of what a report looks like, rendered in two places.
+ */
+export const ReportBody: React.FC<{
+  report: PeriodReport;
   onSelectActivity?: (id: string) => void;
-}> = ({ kind, onBack, onSelectActivity }) => {
-  // Identified by key rather than by how many steps back it is: a calendar
-  // jumps straight to a week, and counting arrow-presses to reach March is
-  // exactly what this replaced.
-  const [periodKey, setPeriodKey] = useState<string | undefined>(undefined);
-  const [report, setReport] = useState<PeriodReport | null>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setBusy(true);
-    const fetch = kind === 'week'
-      ? getWeekReport(0, periodKey)
-      : getPeriodReport(kind, periodKey, 0);
-    fetch
-      .then((r) => { if (!cancelled) { setReport(r); setError(null); } })
-      .catch((e) => { if (!cancelled) setError(describeError(e, 'Could not load the recap')); })
-      .finally(() => { if (!cancelled) setBusy(false); });
-    return () => { cancelled = true; };
-  }, [kind, periodKey]);
+}> = ({ report, onSelectActivity }) => {
+  const t = report.totals;
+  const d = report.deltas;
+  const hasComparison = (report.previous?.totals?.sessions ?? 0) > 0;
+  const noun = report.kind;
 
   const chart = useMemo(
-    () => (report?.breakdown.rows ?? []).map((r) => ({
+    () => (report.breakdown.rows ?? []).map((r) => ({
       label: r.label, km: r.km ?? 0, load: r.load ?? 0, sessions: r.sessions,
     })),
     [report]
   );
 
-  const savePdf = async () => {
-    if (!report) return;
-    setSaving(true);
-    try {
-      await downloadReportPdf(report.kind, report.key);
-    } catch (e: any) {
-      setError(describeError(e, 'Could not build the PDF'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const noun = kind === 'week' ? 'week' : kind === 'month' ? 'month' : 'year';
-
-  if (busy && !report) {
-    return <Empty>Reading your {noun}…</Empty>;
-  }
-  if (error && !report) {
-    return (
-      <>
-        <button onClick={onBack} className="text-sm text-muted hover:text-fg mb-4">← Back</button>
-        <Empty>{error}</Empty>
-      </>
-    );
-  }
-  if (!report) return null;
-
-  const t = report.totals;
-  const d = report.deltas;
-  const hasComparison = (report.previous?.totals?.sessions ?? 0) > 0;
-
   return (
     <>
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <button onClick={onBack}
-                className="text-sm text-muted hover:text-fg transition shrink-0">← Back</button>
-        <div className="flex items-center gap-1.5">
-          {/* The chevrons stay for the common case of nudging one week either
-              way; the calendar is for everything further than that. */}
-          <button onClick={() => report.previous_key && setPeriodKey(report.previous_key)}
-                  disabled={!report.previous_key} aria-label="Earlier week"
-                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
-          </button>
-          {kind === 'week' && (
-            <WeekPicker selected={report.key} label={report.label}
-                        onSelect={(key) => setPeriodKey(key)} />
-          )}
-          <button onClick={() => report.next_key && setPeriodKey(report.next_key)}
-                  disabled={!report.next_key} aria-label="Later week"
-                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-fg-strong">{report.label}</h1>
-          <p className="mt-0.5 text-sm text-muted">
-            {report.complete
-              ? `Your ${noun} in full`
-              : `This ${noun} is still running, so the figures will keep moving`}
-            {hasComparison && ` · compared with ${report.previous.label}`}
-          </p>
-        </div>
-        <button onClick={savePdf} disabled={saving || report.empty}
-                className="shrink-0 px-3.5 py-2 text-xs font-semibold rounded-lg border border-line
-                           text-muted hover:text-fg hover:border-line-strong transition disabled:opacity-40">
-          {saving ? 'Building…' : 'Save as PDF'}
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-5 py-3 px-4 text-[13px] text-negative border border-line rounded-lg bg-surface">
-          {error}
-        </div>
-      )}
-
       {report.empty ? (
         <Empty>Nothing was recorded in this {noun}.</Empty>
       ) : (
@@ -270,7 +180,7 @@ export const PeriodRecap: React.FC<{
             </div>
           </Section>
 
-          <PeriodNoteCard kind={kind} periodKey={report.key} />
+          <PeriodNoteCard kind={report.kind} periodKey={report.key} />
 
           <Section title="How it compares" flush>
             {hasComparison ? (
@@ -393,6 +303,128 @@ export const PeriodRecap: React.FC<{
           </Section>
         </>
       )}
+    </>
+  );
+};
+
+export const PeriodRecap: React.FC<{
+  kind: 'week' | 'month' | 'year';
+  onBack: () => void;
+  onSelectActivity?: (id: string) => void;
+  /** Open a particular period. Omitted means the last one that finished. */
+  initialKey?: string;
+}> = ({ kind, onBack, onSelectActivity, initialKey }) => {
+  // Identified by key rather than by how many steps back it is: a calendar
+  // jumps straight to a week, and counting arrow-presses to reach March is
+  // exactly what this replaced.
+  const [periodKey, setPeriodKey] = useState<string | undefined>(initialKey);
+  const [report, setReport] = useState<PeriodReport | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBusy(true);
+    const fetch = kind === 'week'
+      ? getWeekReport(0, periodKey)
+      : getPeriodReport(kind, periodKey, 0);
+    fetch
+      .then((r) => { if (!cancelled) { setReport(r); setError(null); } })
+      .catch((e) => { if (!cancelled) setError(describeError(e, 'Could not load the recap')); })
+      .finally(() => { if (!cancelled) setBusy(false); });
+    return () => { cancelled = true; };
+  }, [kind, periodKey]);
+
+  const chart = useMemo(
+    () => (report?.breakdown.rows ?? []).map((r) => ({
+      label: r.label, km: r.km ?? 0, load: r.load ?? 0, sessions: r.sessions,
+    })),
+    [report]
+  );
+
+  const savePdf = async () => {
+    if (!report) return;
+    setSaving(true);
+    try {
+      await downloadReportPdf(report.kind, report.key);
+    } catch (e: any) {
+      setError(describeError(e, 'Could not build the PDF'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const noun = kind === 'week' ? 'week' : kind === 'month' ? 'month' : 'year';
+
+  if (busy && !report) {
+    return <Empty>Reading your {noun}…</Empty>;
+  }
+  if (error && !report) {
+    return (
+      <>
+        <button onClick={onBack} className="text-sm text-muted hover:text-fg mb-4">← Back</button>
+        <Empty>{error}</Empty>
+      </>
+    );
+  }
+  if (!report) return null;
+
+  const t = report.totals;
+  const d = report.deltas;
+  const hasComparison = (report.previous?.totals?.sessions ?? 0) > 0;
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <button onClick={onBack}
+                className="text-sm text-muted hover:text-fg transition shrink-0">← Back</button>
+        <div className="flex items-center gap-1.5">
+          {/* The chevrons stay for the common case of nudging one week either
+              way; the calendar is for everything further than that. */}
+          <button onClick={() => report.previous_key && setPeriodKey(report.previous_key)}
+                  disabled={!report.previous_key} aria-label="Earlier week"
+                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+          {kind === 'week' && (
+            <WeekPicker selected={report.key} label={report.label}
+                        onSelect={(key) => setPeriodKey(key)} />
+          )}
+          <button onClick={() => report.next_key && setPeriodKey(report.next_key)}
+                  disabled={!report.next_key} aria-label="Later week"
+                  className="p-1.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition disabled:opacity-25">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-end justify-between gap-4 flex-wrap mb-5">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-fg-strong">{report.label}</h1>
+          <p className="mt-0.5 text-sm text-muted">
+            {report.complete
+              ? `Your ${noun} in full`
+              : `This ${noun} is still running, so the figures will keep moving`}
+            {hasComparison && ` · compared with ${report.previous.label}`}
+          </p>
+        </div>
+        <button onClick={savePdf} disabled={saving || report.empty}
+                className="shrink-0 px-3.5 py-2 text-xs font-semibold rounded-lg border border-line
+                           text-muted hover:text-fg hover:border-line-strong transition disabled:opacity-40">
+          {saving ? 'Building…' : 'Save as PDF'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-5 py-3 px-4 text-[13px] text-negative border border-line rounded-lg bg-surface">
+          {error}
+        </div>
+      )}
+
+      <ReportBody report={report} onSelectActivity={onSelectActivity} />
     </>
   );
 };

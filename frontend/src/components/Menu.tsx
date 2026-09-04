@@ -6,6 +6,7 @@ interface MenuProps {
   onClose: () => void;
   onProfile: () => void;
   onSettings: () => void;
+  onStats: () => void;
   onImport: () => void;
   athlete?: string;
   isAdmin?: boolean;
@@ -34,7 +35,8 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onImport, onAdmin, onSignOut, athlete, isAdmin, dataSource,
+  open, onClose, onProfile, onSettings, onStats, onImport, onAdmin, onSignOut,
+  athlete, isAdmin, dataSource,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -62,6 +64,9 @@ export const Menu: React.FC<MenuProps> = ({
         </div>
 
         <div className="py-2">
+          <Item label="Stats" hint="Totals, profile and printable reports"
+                icon={svg('M3 3v18h18|M7 15l4-5 3 3 4-6')}
+                onClick={onStats} />
           <Item label="Profile" hint="Heart rate, thresholds, weight"
                 icon={svg('M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2|M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8')}
                 onClick={onProfile} />
