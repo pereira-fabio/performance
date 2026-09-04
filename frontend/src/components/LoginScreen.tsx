@@ -8,6 +8,8 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
   const [status, setStatus] = useState<AuthStatus | null>(null);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [source, setSource] = useState('health_connect');
   const [busy, setBusy] = useState(false);
@@ -28,7 +30,13 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'register') await register(username, password, username, source);
+      if (mode === 'register') {
+        // The display name seeds the profile, so asking here saves correcting
+        // it later. Previously the username was used, which meant everyone's
+        // profile was named after their login.
+        const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
+        await register(username, password, fullName || username, source);
+      }
       else await login(username, password);
       onSignedIn();
     } catch (err: any) {
@@ -61,10 +69,29 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
         )}
 
         <form onSubmit={submit} className="space-y-3">
+          {mode === 'register' && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs text-muted">First name</span>
+                <input className={input} value={firstName} autoComplete="given-name" autoFocus
+                       onChange={(e) => setFirstName(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-xs text-muted">Family name</span>
+                <input className={input} value={lastName} autoComplete="family-name"
+                       onChange={(e) => setLastName(e.target.value)} />
+              </label>
+            </div>
+          )}
+
           <label className="block">
             <span className="text-xs text-muted">Username</span>
-            <input className={input} value={username} autoComplete="username" autoFocus
+            <input className={input} value={username} autoComplete="username"
+                   autoFocus={mode === 'login'}
                    onChange={(e) => setUsername(e.target.value)} />
+            {mode === 'register' && (
+              <span className="block text-2xs text-faint mt-1">What you sign in with.</span>
+            )}
           </label>
           <label className="block">
             <span className="text-xs text-muted">Password</span>
@@ -102,7 +129,9 @@ export const LoginScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn }
 
           {error && <p className="text-[13px] text-negative">{error}</p>}
 
-          <button type="submit" disabled={busy || !username || !password}
+          <button type="submit"
+                  disabled={busy || !username || !password
+                            || (mode === 'register' && !firstName.trim())}
                   className={`${button} w-full bg-accent text-white hover:opacity-90`}>
             {busy ? 'Please wait…' : mode === 'register' ? 'Create account' : 'Sign in'}
           </button>

@@ -86,7 +86,7 @@ docker exec -it performance-backend python /data/fix_garmin_sports.py <username>
 
 ## File import
 
-**Menu → Import files.** Accepts `.tcx`, `.gpx`, `.fit`, and `.zip` archives containing any of them — including Garmin's "Export All Data".
+**Menu → Settings → Import activities.** Accepts `.tcx`, `.gpx`, `.fit`, and `.zip` archives containing any of them — including Garmin's "Export All Data".
 
 Every parser produces the same payload the phone sends. Notes on the formats:
 

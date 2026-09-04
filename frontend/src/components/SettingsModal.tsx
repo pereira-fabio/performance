@@ -47,7 +47,9 @@ const estimatedMaxHr = (age: number): number => Math.round(211 - 0.64 * age);
 
 export const SettingsModal: React.FC<{
   isOpen: boolean; onClose: () => void; onUpdated: () => void;
-}> = ({ isOpen, onClose, onUpdated }) => {
+  onSignOut: () => void;
+  username?: string;
+}> = ({ isOpen, onClose, onUpdated, onSignOut, username }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -234,6 +236,24 @@ export const SettingsModal: React.FC<{
           </div>
 
           {note && <p className="text-2xs text-negative">{note}</p>}
+
+          {/* Signing out belongs with the account, not in the main menu where
+              it sat one slip away from everything else. */}
+          <div className="pt-4 border-t border-line flex items-center justify-between gap-3">
+            <span className="text-2xs text-faint truncate">
+              {username ? `Signed in as ${username}` : 'Signed in'}
+            </span>
+            <button type="button" onClick={onSignOut}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold
+                               text-muted hover:text-negative transition">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
+              </svg>
+              Sign out
+            </button>
+          </div>
 
           <div className="flex items-center justify-end gap-2 pt-1">
             <button type="button" onClick={onClose}

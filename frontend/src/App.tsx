@@ -10,7 +10,6 @@ import { AppSettingsModal } from './components/AppSettingsModal';
 import { Menu } from './components/Menu';
 import { LoginScreen } from './components/LoginScreen';
 import { AdminModal } from './components/AdminModal';
-import { ImportModal } from './components/ImportModal';
 import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
 import { SportKey, TabKey, bucketOf, isoWeekKey } from './lib/format';
 import {
@@ -37,7 +36,6 @@ export const App: React.FC = () => {
   const [adminOpen, setAdminOpen] = useState(false);
   const [athlete, setAthlete] = useState<string | undefined>();
   const [session, setSession] = useState(() => loadSession());
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [recap, setRecap] = useState<'week' | 'month' | 'year' | null>(null);
   // Which week the recap opens on: the current one from the home page's own
   // panel, the last finished one from everywhere else.
@@ -247,22 +245,20 @@ export const App: React.FC = () => {
               setStatsOpen(true);
             }}
             isAdmin={session?.is_admin}
-            onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }}
-            onImport={() => { setMenuOpen(false); setUploadOpen(true); }}
-            dataSource={session?.data_source}
-            onSignOut={async () => { await logout(); setSession(null); }} />
+            onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }} />
       {/* Bumps the same counter as app settings: uploading a picture has to
           refresh the level badge on the home page, which reads it directly. */}
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)}
-                     onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }} />
+                     onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }}
+                     username={session?.username}
+                     onSignOut={async () => { await logout(); setSession(null); }} />
       <AdminModal isOpen={adminOpen} onClose={() => setAdminOpen(false)}
                   currentUserId={session?.user_id} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
                         onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }} activityCount={activities.length}
                         onDeleted={() => { setSettingsOpen(false); setSession(null); }}
                         dataSource={session?.data_source} />
-      <ImportModal isOpen={uploadOpen} onClose={() => setUploadOpen(false)}
-                   onImported={load} dataSource={session?.data_source} />
+
     </>
   );
 };

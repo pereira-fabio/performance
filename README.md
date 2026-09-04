@@ -45,7 +45,7 @@ Then pick how your activities get in:
 
 - **Android** — build and install the companion app, grant Health Connect permissions, point it at `http://<server>:8000`. See [Data sources](docs/data-sources.md#android-health-connect).
 - **Garmin, including on iPhone** — sign in under Settings → Automatic sync and it polls for you. See [Data sources](docs/data-sources.md#garmin-connect).
-- **Anything else** — export TCX, GPX or FIT and drop the files into the importer. See [Data sources](docs/data-sources.md#file-import).
+- **Anything else** — export TCX, GPX or FIT and drop them into Settings → Import activities. See [Data sources](docs/data-sources.md#file-import).
 
 Full deployment instructions, including Proxmox and TrueNAS, are in [Installation](docs/installation.md).
 

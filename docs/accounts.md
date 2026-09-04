@@ -5,12 +5,13 @@
 Several people can share one server with completely separate data. Every activity, health record, profile and setting belongs to exactly one account, and no endpoint serves data to an unauthenticated caller.
 
 - **The first account registered becomes the administrator** and claims any activities already in the database — which is what an existing single-athlete install upgrading to accounts should do.
+- Registration asks for your **name and family name** separately from your username. The name seeds your profile, so there is nothing to correct afterwards; the username is only what you sign in with.
 - Passwords are hashed with **scrypt** from the standard library. Sessions are opaque server-side tokens, not JWTs: they can be revoked, and there is no signing key to leak.
 - Each account picks a **data source** at registration (Android or Garmin/file import). It only decides what the interface offers.
 
 ### Profile
 
-**Menu → Profile.** Name, date of birth, sex, height, weight, and your training thresholds — max, resting and threshold heart rate, and threshold pace.
+**Menu → Profile.** Name, date of birth, sex, height, weight, and your training thresholds — max, resting and threshold heart rate, and threshold pace. Signing out lives here too, with the account it ends, rather than in the main menu beside the screens you open every day.
 
 Not all of these do the same amount of work, and the form says which is which:
 

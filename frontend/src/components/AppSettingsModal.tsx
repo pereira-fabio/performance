@@ -7,6 +7,7 @@ import {
 import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
 import { ConnectionCard } from './ConnectionCard';
+import { ImportPanel } from './ImportPanel';
 
 const OPTIONS: { value: ThemePref; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -139,6 +140,8 @@ export const AppSettingsModal: React.FC<{
             </label>
           </div>
         )}
+
+        <ImportPanel onImported={onUpdated} dataSource={source} />
 
         <div>
           <div className="text-xs text-muted mb-2">Your data</div>

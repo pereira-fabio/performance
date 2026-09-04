@@ -7,12 +7,9 @@ interface MenuProps {
   onProfile: () => void;
   onSettings: () => void;
   onStats: () => void;
-  onImport: () => void;
   athlete?: string;
   isAdmin?: boolean;
-  dataSource?: string;
   onAdmin: () => void;
-  onSignOut: () => void;
 }
 
 const Item: React.FC<{ label: string; hint?: string; icon: React.ReactNode; onClick: () => void }> = ({
@@ -35,8 +32,7 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onStats, onImport, onAdmin, onSignOut,
-  athlete, isAdmin, dataSource,
+  open, onClose, onProfile, onSettings, onStats, onAdmin, athlete, isAdmin,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -78,16 +74,13 @@ export const Menu: React.FC<MenuProps> = ({
                   icon={svg('M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z')}
                   onClick={onAdmin} />
           )}
-          <Item label="Import activities"
-                hint={dataSource === 'file_import' ? 'Garmin, Polar or Coros files' : 'GPX, TCX, FIT or a zip'}
-                icon={svg('M12 16V4|M7 9l5-5 5 5|M4 20h16')}
-                onClick={onImport} />
         </div>
 
         <div className="mt-auto border-t border-line">
-          <Item label="Sign out" icon={svg('M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4|M16 17l5-5-5-5|M21 12H9')}
-                onClick={onSignOut} />
-          <div className="px-5 pb-4 text-xs text-faint">
+          {/* Signing out lives with the account it ends, under Profile. A
+              destructive action does not belong one slip away from the things
+              you open every day. */}
+          <div className="px-5 py-4 text-xs text-faint">
             Self-hosted · your data stays on your server
           </div>
         </div>
