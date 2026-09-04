@@ -7,6 +7,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
 import { Menu } from './components/Menu';
 import { LoginScreen } from './components/LoginScreen';
+import { AdminModal } from './components/AdminModal';
 import { GPXUploadModal } from './components/GPXUploadModal';
 import { Activity, DashboardSummary, PMCPoint, BestEffort, HomeData } from './types';
 import { SportKey, TabKey, bucketOf } from './lib/format';
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [athlete, setAthlete] = useState<string | undefined>();
   const [session, setSession] = useState(() => loadSession());
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -131,9 +133,13 @@ export const App: React.FC = () => {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} athlete={athlete}
             onProfile={() => { setMenuOpen(false); setProfileOpen(true); }}
             onSettings={() => { setMenuOpen(false); setSettingsOpen(true); }}
+            isAdmin={session?.is_admin}
+            onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }}
             onImport={() => { setMenuOpen(false); setUploadOpen(true); }}
             onSignOut={async () => { await logout(); setSession(null); }} />
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} onUpdated={load} />
+      <AdminModal isOpen={adminOpen} onClose={() => setAdminOpen(false)}
+                  currentUserId={session?.user_id} />
       <AppSettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)}
                         onUpdated={load} activityCount={activities.length}
                         onDeleted={() => { setSettingsOpen(false); setSession(null); }} />

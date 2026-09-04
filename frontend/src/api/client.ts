@@ -1,5 +1,8 @@
 import axios from 'axios';
-import { Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData } from '../types';
+import {
+  Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData,
+  AdminAccount, AdminOverview, BackupFile,
+} from '../types';
 import { loadSession, saveSession } from '../lib/auth';
 
 /**
@@ -86,6 +89,28 @@ export const deleteAccount = async (password: string): Promise<void> => {
   await api.delete('/auth/me', { data: { password, confirm: 'DELETE' } });
   saveSession(null);
 };
+
+export const adminOverview = async (): Promise<AdminOverview> =>
+  (await api.get<AdminOverview>('/admin/overview')).data;
+
+export const adminUsers = async (): Promise<AdminAccount[]> =>
+  (await api.get<AdminAccount[]>('/admin/users')).data;
+
+export const adminUpdateUser = async (
+  id: string, patch: { is_active?: boolean; is_admin?: boolean }
+): Promise<AdminAccount> => (await api.patch<AdminAccount>(`/admin/users/${id}`, patch)).data;
+
+export const adminDeleteUser = async (id: string): Promise<void> => {
+  await api.delete(`/admin/users/${id}`);
+};
+
+export const adminBackups = async (): Promise<{
+  backups: BackupFile[]; count: number; total_mb: number; retention_days: number;
+  keep_minimum: number; compressed: boolean; directory: string;
+}> => (await api.get('/admin/backups')).data;
+
+export const adminCreateBackup = async () => (await api.post('/admin/backups')).data;
+export const adminPruneBackups = async () => (await api.delete('/admin/backups')).data;
 
 export const logout = async () => {
   try { await api.post('/auth/logout'); } finally { saveSession(null); }

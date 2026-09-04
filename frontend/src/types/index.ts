@@ -145,6 +145,28 @@ export interface HomeData {
   achievements: Achievement[];
 }
 
+export interface AdminAccount {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  is_admin: boolean;
+  is_active: boolean;
+  created_at: string;
+  activities: number;
+  last_activity?: string | null;
+  sessions: number;
+}
+
+export interface BackupFile {
+  name: string; size_mb: number; created: string; age_days: number; compressed: boolean;
+}
+
+export interface AdminOverview {
+  accounts: number; active_accounts: number; activities: number;
+  unowned_activities: number; database_mb?: number | null;
+  backups: number; backup_total_mb: number; newest_backup?: BackupFile | null;
+}
+
 export interface UserProfile {
   id: number;
   name: string;

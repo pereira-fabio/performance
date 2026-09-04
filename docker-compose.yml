@@ -42,7 +42,10 @@ services:
       - BACKUP_DIR=/data/backups
       # Daily. The database changes a few times a week, not hourly.
       - BACKUP_INTERVAL_SEC=86400
-      - MAX_BACKUPS=30
+      # Age-based, not count-based: a week of history is what is actually
+      # wanted, and a count means something different whenever the schedule does.
+      - BACKUP_RETENTION_DAYS=7
+      - BACKUP_KEEP_MINIMUM=3
     volumes:
       - peakpace_db:/db
       - /opt/peakpace/data:/data

@@ -46,6 +46,7 @@ class Session_(BaseModel):
     username: str
     display_name: Optional[str]
     user_id: str
+    is_admin: bool = False
     claimed_existing_data: bool = False
 
 
@@ -53,6 +54,7 @@ class Me(BaseModel):
     user_id: str
     username: str
     display_name: Optional[str]
+    is_admin: bool = False
 
 
 def _issue(db: Session, user: User, label: Optional[str]) -> str:
@@ -117,6 +119,7 @@ def register(body: Credentials, db: Session = Depends(get_db)):
         username=username,
         display_name=(body.display_name or body.username).strip(),
         password_hash=hash_password(body.password),
+        is_admin=first_account,
     )
     db.add(user)
     db.flush()
@@ -140,7 +143,7 @@ def register(body: Credentials, db: Session = Depends(get_db)):
     return Session_(
         token=_issue(db, user, "register"), username=user.username,
         display_name=user.display_name, user_id=user.id,
-        claimed_existing_data=claimed,
+        is_admin=bool(user.is_admin), claimed_existing_data=claimed,
     )
 
 
@@ -157,6 +160,7 @@ def login(body: Credentials, db: Session = Depends(get_db)):
     return Session_(
         token=_issue(db, user, "login"), username=user.username,
         display_name=user.display_name, user_id=user.id,
+        is_admin=bool(user.is_admin),
     )
 
 
@@ -299,4 +303,5 @@ def export_my_data(
 
 @router.get("/me", response_model=Me)
 def me(user: User = Depends(current_user)):
-    return Me(user_id=user.id, username=user.username, display_name=user.display_name)
+    return Me(user_id=user.id, username=user.username,
+              display_name=user.display_name, is_admin=bool(user.is_admin))

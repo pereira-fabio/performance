@@ -19,6 +19,9 @@ class User(Base):
     display_name = Column(String(128), nullable=True)
     password_hash = Column(String(256), nullable=False)
     is_active = Column(Boolean, default=True)
+    # The first account registered becomes the administrator, so a fresh
+    # install has one without a separate setup step.
+    is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -54,6 +54,9 @@ _ADDED_COLUMNS = {
     "activity_splits": [
         ("is_partial", "BOOLEAN DEFAULT 0"),
     ],
+    "users": [
+        ("is_admin", "BOOLEAN DEFAULT 0"),
+    ],
 }
 
 

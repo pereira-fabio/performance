@@ -8,6 +8,8 @@ interface MenuProps {
   onSettings: () => void;
   onImport: () => void;
   athlete?: string;
+  isAdmin?: boolean;
+  onAdmin: () => void;
   onSignOut: () => void;
 }
 
@@ -31,7 +33,7 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onImport, onSignOut, athlete,
+  open, onClose, onProfile, onSettings, onImport, onAdmin, onSignOut, athlete, isAdmin,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -65,6 +67,11 @@ export const Menu: React.FC<MenuProps> = ({
           <Item label="Settings" hint="Appearance and maintenance"
                 icon={svg('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6|M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7.26 19.4l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3 12.91V12a2 2 0 0 1 4 0')}
                 onClick={onSettings} />
+          {isAdmin && (
+            <Item label="Administration" hint="Accounts and backups"
+                  icon={svg('M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z')}
+                  onClick={onAdmin} />
+          )}
           <Item label="Import GPX" hint="Add an activity by file"
                 icon={svg('M12 16V4|M7 9l5-5 5 5|M4 20h16')}
                 onClick={onImport} />

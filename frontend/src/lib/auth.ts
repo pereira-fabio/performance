@@ -4,6 +4,8 @@ export interface StoredSession {
   token: string;
   username: string;
   display_name?: string | null;
+  user_id?: string;
+  is_admin?: boolean;
 }
 
 export const loadSession = (): StoredSession | null => {
