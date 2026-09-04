@@ -90,6 +90,23 @@ export const deleteAccount = async (password: string): Promise<void> => {
   saveSession(null);
 };
 
+export interface Me {
+  user_id: string; username: string; display_name?: string | null; is_admin: boolean;
+}
+
+/**
+ * Re-read who we are and fold it back into the stored session.
+ *
+ * A session saved before a field existed will never gain it otherwise, so a
+ * long-lived login would keep hiding features it should now see.
+ */
+export const refreshMe = async (): Promise<Me> => {
+  const me = (await api.get<Me>('/auth/me')).data;
+  const session = loadSession();
+  if (session) saveSession({ ...session, user_id: me.user_id, is_admin: me.is_admin });
+  return me;
+};
+
 export const adminOverview = async (): Promise<AdminOverview> =>
   (await api.get<AdminOverview>('/admin/overview')).data;
 

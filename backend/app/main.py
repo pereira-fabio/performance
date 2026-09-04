@@ -11,6 +11,34 @@ from backend.app.models import models
 from backend.app.api import auth, admin, sync, activities, metrics, settings as settings_api
 
 # Create database tables automatically with SMB fallback
+def ensure_administrator():
+    """
+    Guarantee somebody can administer this server.
+
+    The rule that the first account becomes administrator only applies at
+    registration, so an install whose accounts predate that rule ends up with
+    nobody able to manage it -- and no way to fix that from the interface. The
+    earliest account is promoted instead, which is the one that claimed the
+    existing history.
+    """
+    from backend.app.core.database import SessionLocal
+    from backend.app.models.models import User
+
+    db = SessionLocal()
+    try:
+        if db.query(User).filter(User.is_admin.is_(True), User.is_active.is_(True)).count():
+            return
+        first = db.query(User).order_by(User.created_at.asc()).first()
+        if first:
+            first.is_admin = True
+            db.commit()
+            print(f"👑 No administrator found; promoted '{first.username}'.", flush=True)
+    except Exception as exc:
+        print(f"⚠️ Could not verify an administrator exists: {exc}", flush=True)
+    finally:
+        db.close()
+
+
 def _prepare(eng):
     """Restructure before SQLAlchemy inspects, then create what is missing."""
     url = str(eng.url)
@@ -20,6 +48,7 @@ def _prepare(eng):
             migrate_to_accounts(path)
     Base.metadata.create_all(bind=eng)
     ensure_schema(eng)
+    ensure_administrator()
 
 
 try:

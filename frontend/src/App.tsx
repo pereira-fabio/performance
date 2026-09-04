@@ -14,7 +14,7 @@ import { SportKey, TabKey, bucketOf } from './lib/format';
 import {
   getActivities, getActivityDetail, getDashboardSummary,
   getPMCData, getPersonalRecords, deleteActivity, getHome, getUserProfile,
-  logout, setUnauthorizedHandler,
+  logout, setUnauthorizedHandler, refreshMe,
 } from './api/client';
 import { loadSession } from './lib/auth';
 import { describeError } from './lib/errors';
@@ -49,6 +49,8 @@ export const App: React.FC = () => {
       setRecords(recs);
       setHome(hm);
       getUserProfile().then((p) => setAthlete(p.name)).catch(() => {});
+      // Picks up fields a session predating them would otherwise never see.
+      refreshMe().then(() => setSession(loadSession())).catch(() => {});
       setError(null);
     } catch (err: any) {
       setError(describeError(err, 'Could not load your data'));
