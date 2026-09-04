@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, button, input } from './Modal';
-import { recalculateMetrics, exportMyData, deleteAccount } from '../api/client';
+import { recalculateMetrics, exportMyData, deleteAccount, setDataSource } from '../api/client';
 import { describeError } from '../lib/errors';
 import { ThemePref, getTheme, applyTheme } from '../lib/theme';
 import { ConnectionCard } from './ConnectionCard';
@@ -21,6 +21,7 @@ export const AppSettingsModal: React.FC<{
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [source, setSource] = useState(dataSource ?? 'health_connect');
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings" subtitle="Appearance and maintenance">
@@ -63,7 +64,36 @@ export const AppSettingsModal: React.FC<{
           {note && <p className="mt-2 text-xs text-muted">{note}</p>}
         </div>
 
-        {dataSource !== 'health_connect' && (
+        <div>
+          <div className="text-xs text-muted mb-2">Where your training comes from</div>
+          {/* Always offered, and always changeable: the choice was previously
+              made once at sign-up and then had nowhere to be revisited, which
+              left anyone who picked wrongly with no way back. */}
+          <div className="flex gap-1 p-1 rounded-lg bg-surface border border-line">
+            {[
+              { id: 'health_connect', label: 'Android' },
+              { id: 'file_import', label: 'Garmin / iPhone' },
+            ].map((o) => (
+              <button key={o.id}
+                onClick={async () => {
+                  setSource(o.id);
+                  try { await setDataSource(o.id); onUpdated(); }
+                  catch { /* the selection still stands for this session */ }
+                }}
+                className={`flex-1 py-1.5 rounded-md text-[13px] font-medium transition ${
+                  source === o.id ? 'bg-card text-fg-strong shadow-card' : 'text-muted hover:text-fg'}`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-2xs text-faint">
+            {source === 'health_connect'
+              ? 'The companion app reads Health Connect on your phone.'
+              : 'Link Garmin below for automatic sync, or import exported files from the menu.'}
+          </p>
+        </div>
+
+        {source !== 'health_connect' && (
           <div>
             <div className="text-xs text-muted mb-2">Automatic sync</div>
             <ConnectionCard onChanged={onUpdated} />
