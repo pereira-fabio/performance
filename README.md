@@ -4,11 +4,13 @@ Self-hosted training analytics. It reads your activities from **Android Health C
 
 Built to run on a **Proxmox LXC container** backed by **TrueNAS SCALE**, but it is an ordinary Docker Compose stack and will run anywhere Docker does.
 
-Two principles run through the whole thing:
+Three principles run through the whole thing:
 
 **Each sport is kept separate.** Walks and gym sessions are recorded and shown, but they do not set running records and they do not drive the running fitness curve. A 10:31/km walk is not a slow run.
 
-**A missing number is shown as missing.** Where the data cannot support a metric, the app says so and says why, rather than showing a plausible figure. Every activity records which channels were measured, how well they were covered, and which values were estimated.
+**A missing number is shown as missing.** Where the data cannot support a metric, the app says so and says why, rather than showing a plausible figure. Every activity records which channels were measured, how well they were covered, and which values were estimated. Where a figure is derived rather than measured — an estimated VO₂ max, a training effect — it says that too.
+
+**A week is Monday to Sunday.** Not a rolling seven days. A window that slides forward every morning can never be finished, and "four days trained" needs a seven to count against.
 
 ---
 
@@ -16,9 +18,10 @@ Two principles run through the whole thing:
 
 | | |
 | :-- | :-- |
-| **Ingest** | Android companion app reading Health Connect; automatic Garmin Connect sync; TCX, GPX, FIT and zip import |
-| **Analyse** | Aerobic decoupling, grade-adjusted pace, rTSS, TRIMP, heart-rate zones, best efforts, training effect, recovery |
-| **Track** | Banister fitness/fatigue/form curve, personal records, XP and levels, achievements |
+| **Ingest** | Android companion app reading Health Connect; automatic Garmin Connect sync of your whole history; TCX, GPX, FIT and zip import |
+| **Analyse** | Aerobic decoupling, grade-adjusted pace, rTSS, TRIMP, heart-rate and pace zones, splits, best efforts, training effect, recovery |
+| **Estimate** | Elevation where the watch recorded none, VO₂ max where nothing reported one, body fat from a tape measure |
+| **Track** | Banister fitness/fatigue/form curve, the best three at every distance, XP and levels, achievements |
 | **Review** | Weekly, monthly and yearly recaps with period-on-period comparison; printable PDF reports |
 | **Comment** | Optional written coaching from a language model running on your own hardware — it phrases figures, it never calculates them |
 | **Manage** | Multiple accounts with separate data, an admin console, automatic dated backups |
@@ -39,15 +42,29 @@ docker compose up -d --build
 - **Dashboard** — `http://<server>:3000`
 - **API and Swagger docs** — `http://<server>:8000/docs`
 
-Open the dashboard and register. **The first account created becomes the administrator** and claims any activities that were already in the database.
+Open the dashboard and register. Registration asks for your name as well as a username, so your profile starts filled in. **The first account created becomes the administrator** and claims any activities that were already in the database.
 
 Then pick how your activities get in:
 
 - **Android** — build and install the companion app, grant Health Connect permissions, point it at `http://<server>:8000`. See [Data sources](docs/data-sources.md#android-health-connect).
-- **Garmin, including on iPhone** — sign in under Settings → Automatic sync and it polls for you. See [Data sources](docs/data-sources.md#garmin-connect).
+- **Garmin, including on iPhone** — sign in under Settings → Automatic sync and it polls for you every half hour. The first sync pulls your whole account, a batch at a time. See [Data sources](docs/data-sources.md#garmin-connect).
 - **Anything else** — export TCX, GPX or FIT and drop them into Settings → Import activities. See [Data sources](docs/data-sources.md#file-import).
 
+Then set your thresholds under **Profile** — maximum, resting and threshold heart rate, and threshold pace. Zones and training load are measured against them, and left at the defaults every run lands in the same zone and every load figure is wrong.
+
 Full deployment instructions, including Proxmox and TrueNAS, are in [Installation](docs/installation.md).
+
+---
+
+## Around the app
+
+**Home** is the week you are in: distance so far, days trained, and a bar per day. Last week sits under it as a finished summary you can open in full, then your level, and the achievements you are closest to earning.
+
+**Runs, Walks and Gym** are separate tabs, each with its own week, its own history and nothing borrowed from the others. Runs also carry the fitness and fatigue curve, and personal records at every standard distance.
+
+**An activity** leads with its map, drawn from start to finish. Then splits as bars, one chart switching between heart rate and pace with the elevation profile behind it, and time in zones by heart rate or by pace.
+
+**Stats**, in the menu, is the long view: lifetime totals, an attribute profile, where your time goes by sport, and a report on any month or year — on screen, and downloadable as a PDF.
 
 ---
 
@@ -74,6 +91,9 @@ Full deployment instructions, including Proxmox and TrueNAS, are in [Installatio
 | Fitness / fatigue / form | Paywalled, simplified | Full Banister model with ACWR |
 | Grade-adjusted pace | Proprietary | Minetti et al. (2002), documented |
 | Elevation when the watch records none | Not recovered | Recovered from a local terrain model |
+| VO₂ max when the watch reports none | Not available | Estimated from your best effort, labelled as an estimate |
+| Personal records | Best only | Best three at each distance, each opening the run it was set in |
+| Body composition | Not available | BMI beside a tape-measure body-fat estimate |
 | Data quality | Not reported | Per-channel coverage on every activity |
 | Written coaching | Paywalled, cloud | Your own model, on your own hardware |
 | Where your GPS traces live | Their cloud | Your server, and nowhere else |
