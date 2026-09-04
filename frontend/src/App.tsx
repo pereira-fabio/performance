@@ -50,7 +50,18 @@ export const App: React.FC = () => {
       setHome(hm);
       getUserProfile().then((p) => setAthlete(p.name)).catch(() => {});
       // Picks up fields a session predating them would otherwise never see.
-      refreshMe().then(() => setSession(loadSession())).catch(() => {});
+      // Only replaces the stored session when something actually differs:
+      // loadSession() builds a new object every call, and setting it
+      // unconditionally would retrigger the effect that called this.
+      refreshMe()
+        .then((me) => {
+          setSession((prev) =>
+            prev && prev.is_admin === me.is_admin && prev.user_id === me.user_id
+              ? prev
+              : loadSession()
+          );
+        })
+        .catch(() => {});
       setError(null);
     } catch (err: any) {
       setError(describeError(err, 'Could not load your data'));
@@ -63,7 +74,9 @@ export const App: React.FC = () => {
   // dashboard sitting there failing every request.
   useEffect(() => { setUnauthorizedHandler(() => setSession(null)); }, []);
 
-  useEffect(() => { if (session) load(); }, [session]);
+  // Keyed on the token, not the session object: the object is rebuilt on every
+  // read, so depending on it reloads endlessly.
+  useEffect(() => { if (session?.token) load(); }, [session?.token]);
 
   // The Android app opens these views by loading the page with a fragment,
   // so the same screens are reachable from its menu without duplicating them.
