@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Shell } from './components/Shell';
 import { SportView } from './components/SportView';
 import { HomeView } from './components/HomeView';
@@ -41,6 +41,11 @@ export const App: React.FC = () => {
   // Incremented whenever settings are saved, so views that read a setting
   // directly from the server pick the change up without a full reload.
   const [settingsSaves, setSettingsSaves] = useState(0);
+  // Where the list was when a sub-view was opened from it. Null means "this
+  // change should start at the top" rather than "restore nothing".
+  const returnScroll = useRef<number | null>(null);
+  // Where to go back to, remembered from when the sub-view was opened.
+  const backTo = useRef(0);
 
   const load = async () => {
     setRefreshing(true);
@@ -104,13 +109,44 @@ export const App: React.FC = () => {
     [byTab]
   );
 
-  const openActivity = async (a: Activity) => {
+  /**
+   * Open one activity.
+   *
+   * `returnTo` is where Back should land, captured now rather than later: the
+   * detail is fetched first, and by the time it arrives the position that made
+   * sense is gone. Callers that arrive from somewhere other than the list pass
+   * their own, because restoring one view's scroll onto another is worse than
+   * starting at the top.
+   */
+  const openActivity = async (a: Activity, returnTo: number = window.scrollY) => {
+    backTo.current = returnTo;
+    returnScroll.current = null;
     try {
       setSelected(await getActivityDetail(a.id));
     } catch {
       setSelected(a);
     }
   };
+
+  /**
+   * Opening a page starts it at the top.
+   *
+   * These are separate pages that happen to share a URL, so the browser never
+   * resets the scroll position for us: clicking a run near the bottom of a long
+   * list opened its page already scrolled halfway down. Going back restores
+   * where the list was, which is the reason you were down there.
+   *
+   * useLayoutEffect rather than useEffect so the jump happens before the
+   * browser paints, instead of being visible as a flick.
+   */
+  useLayoutEffect(() => {
+    if (returnScroll.current != null) {
+      window.scrollTo(0, returnScroll.current);
+      returnScroll.current = null;
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [selected?.id, recap, tab]);
 
   const removeActivity = async (id: string) => {
     await deleteActivity(id);
@@ -127,7 +163,9 @@ export const App: React.FC = () => {
       <Shell tab={tab} onTab={(t) => { setSelected(null); setTab(t); }} counts={counts}
              onMenu={() => setMenuOpen(true)}
              onRefresh={load} refreshing={refreshing}>
-        <ActivityDetail activity={selected} onBack={() => setSelected(null)} onDelete={removeActivity} />
+        <ActivityDetail activity={selected}
+                        onBack={() => { returnScroll.current = backTo.current; setSelected(null); }}
+                        onDelete={removeActivity} />
       </Shell>
     );
   }
@@ -137,10 +175,13 @@ export const App: React.FC = () => {
       <Shell tab={tab} onTab={(t) => { setRecap(null); setTab(t); }} counts={counts}
              onMenu={() => setMenuOpen(true)}
              onRefresh={load} refreshing={refreshing}>
-        <PeriodRecap kind={recap} onBack={() => setRecap(null)}
+        <PeriodRecap kind={recap}
+                     onBack={() => { returnScroll.current = backTo.current; setRecap(null); }}
                      onSelectActivity={(id) => {
                        const found = activities.find((a) => a.id === id);
-                       if (found) { setRecap(null); openActivity(found); }
+                       // Back from here lands on the list, which this reader
+                       // never scrolled, so it starts at the top.
+                       if (found) { setRecap(null); openActivity(found, 0); }
                      }} />
       </Shell>
     );
@@ -157,7 +198,8 @@ export const App: React.FC = () => {
           </div>
         )}
         {tab === 'home' ? (
-          <HomeView data={home} onTab={setTab} onOpenRecap={() => setRecap('week')}
+          <HomeView data={home} onTab={setTab}
+                    onOpenRecap={() => { backTo.current = window.scrollY; setRecap('week'); }}
                     cycleKey={settingsSaves} />
         ) : (
           <SportView tab={tab} activities={byTab[tab]} summary={summary}
