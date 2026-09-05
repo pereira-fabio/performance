@@ -28,9 +28,18 @@ def _fmt_pace(seconds):
     return f"{int(seconds // 60)}:{int(round(seconds % 60)):02d} /km"
 
 
-def describe(db, activity) -> None:
+def describe(db, activity, searched_all: bool) -> None:
+    # Whose it is, always. On a server with more than one athlete the newest
+    # activity is often not the one being asked about, and an answer about
+    # somebody else's run looks exactly like an answer about yours.
+    owner = db.query(User).filter(User.id == activity.user_id).first()
+    who = owner.username if owner else "unowned"
+
     print(f"\n{activity.name}   {activity.start_time:%Y-%m-%d %H:%M}   {activity.sport_type}")
-    print(f"id {activity.id}   external {activity.external_id}   via {activity.source}")
+    print(f"account {who}   id {activity.id}")
+    print(f"external {activity.external_id}   via {activity.source}")
+    if searched_all:
+        print(f"(newest across all accounts — use --user <name> to pick one)")
     print("-" * 68)
 
     km = (activity.distance_meters or 0) / 1000.0
@@ -123,7 +132,14 @@ def main(argv) -> int:
                 print("No activities stored.")
                 return 1
 
-        describe(db, activity)
+        describe(db, activity, searched_all=not username and not args)
+
+        if not username and not args:
+            # Which accounts exist, so the right one can be asked for without
+            # having to go and look it up.
+            others = [u.username for u in db.query(User).order_by(User.created_at.asc()).all()]
+            if len(others) > 1:
+                print(f"\nAccounts on this server: {', '.join(others)}")
         return 0
     finally:
         db.close()
