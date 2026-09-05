@@ -361,7 +361,8 @@ export const fetchAvatarUrl = async (): Promise<string | null> => {
 export const editActivity = async (
   id: string,
   changes: Partial<Pick<Activity,
-    'name' | 'sport_type' | 'workout_tag' | 'notes' | 'calories_kcal' | 'steps'>>
+    'name' | 'sport_type' | 'workout_tag' | 'notes' | 'calories_kcal' | 'steps'
+    | 'distance_meters'>>
 ): Promise<Activity> => (await api.patch<Activity>(`/activities/${id}`, changes)).data;
 
 export const getWorkoutTags = async (): Promise<string[]> =>

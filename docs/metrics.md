@@ -192,10 +192,21 @@ An activity can be renamed, moved to a different sport, tagged with the kind of
 session it was — recovery, easy, long, tempo, intervals, race — annotated, and
 given a calorie or step count the device never wrote.
 
-**Distance, duration and heart rate are not editable.** Pace, load, zones,
-records and the fitness curve are all computed from them, and changing one
-without replaying the session through the physiology engine leaves an activity
-whose own figures disagree. A wrong distance is a re-sync, not a correction.
+**Duration and heart rate are not editable**, and neither is distance where the
+session recorded a distance trace. Pace, load, zones, records and the fitness
+curve are all computed from those, and changing one without replaying the
+session through the physiology engine leaves an activity whose own figures
+disagree. A wrong distance on a properly recorded run is a re-sync, not a
+correction.
+
+**Distance is editable where there is no distance trace** — a watch whose GPS
+failed still leaves a runner who knows how far they went. Splits exist exactly
+when a trace does, so they are the test: without them, the distance and the
+duration are the whole activity and a figure the athlete knows completes it
+consistently. The average pace follows from it. Training load does not, because
+rTSS needs a pace series and there is none, and it is left as it was rather than
+guessed. The entry is recorded, so a typed figure is never later mistaken for a
+measured one.
 
 The tag is the athlete's, not the watch's: a device records what happened, and
 only the runner knows whether an easy pace was a recovery jog or all they had

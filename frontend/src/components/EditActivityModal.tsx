@@ -47,6 +47,7 @@ export const EditActivityModal: React.FC<{
   const [name, setName] = useState('');
   const [sport, setSport] = useState('running');
   const [tag, setTag] = useState<string | null>(null);
+  const [distanceKm, setDistanceKm] = useState<string>('');
   const [calories, setCalories] = useState<string>('');
   const [steps, setSteps] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -62,6 +63,8 @@ export const EditActivityModal: React.FC<{
     setName(activity.name ?? '');
     setSport((activity.sport_type ?? 'running').toLowerCase());
     setTag(activity.workout_tag ?? null);
+    setDistanceKm(activity.distance_meters
+      ? (activity.distance_meters / 1000).toFixed(2) : '');
     setCalories(activity.calories_kcal != null ? String(Math.round(activity.calories_kcal)) : '');
     setSteps(activity.steps != null ? String(activity.steps) : '');
     setNotes(activity.notes ?? '');
@@ -73,12 +76,21 @@ export const EditActivityModal: React.FC<{
 
   if (!activity) return null;
 
+  // Distance is editable only where nothing was derived from a distance trace.
+  // Splits exist exactly when there was one, so they are the test: with splits
+  // an edited total would contradict the kilometres it is meant to be the sum
+  // of. Without them, the distance and the duration are the whole activity.
+  const canSetDistance = !(activity.splits && activity.splits.length > 0);
+
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
       const updated = await editActivity(activity.id, {
+        ...(canSetDistance
+          ? { distance_meters: distanceKm === '' ? null : Math.round(Number(distanceKm) * 1000) }
+          : {}),
         name: name.trim(),
         sport_type: sport,
         workout_tag: tag,
@@ -130,6 +142,14 @@ export const EditActivityModal: React.FC<{
           </p>
         </div>
 
+        {canSetDistance && (
+          <Field label="Distance" hint="km — this session recorded no distance trace">
+            <input type="number" step="0.01" min="0" className={input} value={distanceKm}
+                   placeholder="not recorded"
+                   onChange={(e) => setDistanceKm(e.target.value)} />
+          </Field>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="Calories" hint="kcal">
             <input type="number" min="0" max="30000" className={input} value={calories}
@@ -150,10 +170,14 @@ export const EditActivityModal: React.FC<{
         </Field>
 
         <p className="text-2xs text-faint">
-          Distance, duration and heart rate are not editable here. Everything else — pace,
-          training load, zones, records — is computed from them, and changing one on its own
-          would leave this activity's figures disagreeing with each other. If those are
-          wrong, re-sync the activity.
+          {canSetDistance
+            ? 'This session recorded no distance trace, so a distance you know can be '
+              + 'entered and the average pace follows from it. Training load still cannot '
+              + 'be computed without a pace or heart-rate trace, and is not guessed.'
+            : 'Distance, duration and heart rate are not editable here. Pace, training '
+              + 'load, zones and records are all computed from them, and changing one on '
+              + 'its own would leave this activity\u2019s figures disagreeing with each '
+              + 'other. If those are wrong, re-sync the activity.'}
         </p>
 
         {error && <p className="text-2xs text-negative">{error}</p>}
