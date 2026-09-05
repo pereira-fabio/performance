@@ -370,3 +370,22 @@ export const getWorkoutTags = async (): Promise<string[]> =>
 
 export const getThresholdSuggestion = async (): Promise<ThresholdSuggestion> =>
   (await api.get<ThresholdSuggestion>('/settings/threshold-suggestion')).data;
+
+export interface NewActivity {
+  name: string;
+  sport_type: string;
+  start_time: string;
+  duration_sec: number;
+  distance_meters?: number | null;
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  elevation_gain_m?: number | null;
+  calories_kcal?: number | null;
+  steps?: number | null;
+  workout_tag?: string | null;
+  notes?: string | null;
+}
+
+/** Record an activity by hand, for one that never reached the phone. */
+export const createActivity = async (body: NewActivity): Promise<Activity> =>
+  (await api.post<Activity>('/activities', body)).data;

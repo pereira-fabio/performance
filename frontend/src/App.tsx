@@ -5,6 +5,7 @@ import { HomeView } from './components/HomeView';
 import { PeriodRecap } from './components/PeriodRecap';
 import { StatsView } from './components/StatsView';
 import { EditActivityModal } from './components/EditActivityModal';
+import { AddActivityModal } from './components/AddActivityModal';
 import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
@@ -61,6 +62,7 @@ export const App: React.FC = () => {
   const [recapKey, setRecapKey] = useState<string | undefined>(undefined);
   const [statsOpen, setStatsOpen] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
+  const [adding, setAdding] = useState(false);
   // Incremented whenever settings are saved, so views that read a setting
   // directly from the server pick the change up without a full reload.
   const [settingsSaves, setSettingsSaves] = useState(0);
@@ -282,6 +284,7 @@ export const App: React.FC = () => {
       <Menu open={menuOpen} onClose={() => setMenuOpen(false)} athlete={athlete}
             onProfile={() => { setMenuOpen(false); setProfileOpen(true); }}
             onSettings={() => { setMenuOpen(false); setSettingsOpen(true); }}
+            onAddActivity={() => { setMenuOpen(false); setAdding(true); }}
             onStats={() => {
               setMenuOpen(false);
               backTo.current = window.scrollY;
@@ -293,6 +296,9 @@ export const App: React.FC = () => {
             onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }} />
       {/* Bumps the same counter as app settings: uploading a picture has to
           refresh the level badge on the home page, which reads it directly. */}
+      <AddActivityModal isOpen={adding} onClose={() => setAdding(false)}
+                        onCreated={load} />
+
       <EditActivityModal
         activity={editing}
         onClose={() => setEditing(null)}

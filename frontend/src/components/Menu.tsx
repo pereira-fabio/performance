@@ -7,6 +7,7 @@ interface MenuProps {
   onProfile: () => void;
   onSettings: () => void;
   onStats: () => void;
+  onAddActivity: () => void;
   athlete?: string;
   isAdmin?: boolean;
   onAdmin: () => void;
@@ -32,7 +33,7 @@ const svg = (d: string) => (
 );
 
 export const Menu: React.FC<MenuProps> = ({
-  open, onClose, onProfile, onSettings, onStats, onAdmin, athlete, isAdmin,
+  open, onClose, onProfile, onSettings, onStats, onAddActivity, onAdmin, athlete, isAdmin,
 }) => {
   // Escape should close an overlay; without it the only way out is the mouse.
   useEffect(() => {
@@ -66,6 +67,9 @@ export const Menu: React.FC<MenuProps> = ({
           <Item label="Stats" hint="Totals, profile and printable reports"
                 icon={svg('M3 3v18h18|M7 15l4-5 3 3 4-6')}
                 onClick={onStats} />
+          <Item label="Add an activity" hint="One that never reached your phone"
+                icon={svg('M12 5v14|M5 12h14')}
+                onClick={onAddActivity} />
           <Item label="Settings" hint="Appearance and maintenance"
                 icon={svg('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6|M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 7.26 19.4l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3 12.91V12a2 2 0 0 1 4 0')}
                 onClick={onSettings} />

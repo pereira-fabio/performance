@@ -4,8 +4,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from backend.app.core.database import get_db
 from backend.app.core.sports import WORKOUT_TAGS, is_valid_tag
-from backend.app.models.models import Activity, ActivitySplit, ActivityStream
+from backend.app.models.models import Activity, ActivitySplit, ActivityStream, UserProfile
 from backend.app.physiology.progress import activity_xp
+from backend.app.physiology.trimp import calculate_banister_trimp
+from backend.app.services.activity_processor import ActivityProcessor, to_naive_utc
+from datetime import datetime, timedelta
+import uuid
 from backend.app.models.schemas import ActivitySummaryOut, ActivityDetailOut
 from backend.app.api.auth import current_user
 from backend.app.models.models import User
@@ -29,6 +33,136 @@ def list_activities(
 # Declared before /{activity_id}: routes match in the order they are defined,
 # and a literal path registered after a parameterised one is never reached --
 # "tags" would simply be looked up as an activity id.
+class ManualActivity(BaseModel):
+    """
+    An activity the athlete enters themselves.
+
+    Only what a person can actually know: what it was, when, how long, how far,
+    and what their watch showed them. Nothing derived is accepted -- pace comes
+    from distance over duration, and grade-adjusted pace, decoupling, fitness
+    and fatigue are not offered at all, because a figure typed into those boxes
+    would be indistinguishable from one this server computed and would quietly
+    corrupt every trend built on them.
+    """
+    name: str = Field(min_length=1, max_length=255)
+    sport_type: str = Field(max_length=64)
+    start_time: datetime
+    duration_sec: float = Field(gt=0, le=60 * 60 * 24)
+    distance_meters: Optional[float] = Field(default=None, ge=0, le=1_000_000)
+    avg_hr: Optional[int] = Field(default=None, ge=25, le=250)
+    max_hr: Optional[int] = Field(default=None, ge=25, le=260)
+    elevation_gain_m: Optional[float] = Field(default=None, ge=0, le=30000)
+    calories_kcal: Optional[float] = Field(default=None, ge=0, le=30000)
+    steps: Optional[int] = Field(default=None, ge=0, le=500000)
+    workout_tag: Optional[str] = Field(default=None, max_length=32)
+    notes: Optional[str] = None
+
+
+@router.post("", response_model=ActivityDetailOut, status_code=status.HTTP_201_CREATED)
+def create_activity(
+    body: ManualActivity,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """
+    Record an activity by hand.
+
+    For a session that never reached the phone at all: a watch that failed to
+    export it, a run on someone else's device, a race with nothing but a result.
+    It is marked as entered by hand and never pretends to be more than it is.
+    """
+    if not is_valid_tag(body.workout_tag):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Tag must be one of {', '.join(WORKOUT_TAGS)}.",
+        )
+    sport = (body.sport_type or "").strip().lower()
+    if not sport:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "A sport is required.")
+    if body.max_hr and body.avg_hr and body.max_hr < body.avg_hr:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Maximum heart rate cannot be below the average.",
+        )
+
+    start = to_naive_utc(body.start_time)
+    end = start + timedelta(seconds=body.duration_sec)
+    distance = float(body.distance_meters or 0.0)
+
+    activity = Activity(
+        user_id=user.id,
+        # Prefixed so it can never collide with a synced id, and so a manual
+        # entry is recognisable in the database without reading its quality.
+        external_id=f"manual:{uuid.uuid4()}",
+        name=body.name.strip(),
+        sport_type=sport,
+        start_time=start,
+        end_time=end,
+        # Nothing distinguishes moving from stopped in a figure someone typed.
+        elapsed_time_sec=body.duration_sec,
+        moving_time_sec=body.duration_sec,
+        distance_meters=distance,
+        avg_hr=body.avg_hr,
+        max_hr=body.max_hr,
+        elevation_gain_m=body.elevation_gain_m,
+        calories_kcal=body.calories_kcal,
+        steps=body.steps,
+        workout_tag=body.workout_tag or None,
+        notes=(body.notes or "").strip() or None,
+        source="manual",
+        hr_coverage=0.0,
+    )
+    if distance > 0:
+        activity.avg_speed_mps = distance / body.duration_sec
+        activity.avg_pace_sec_km = body.duration_sec / (distance / 1000.0)
+
+    unavailable = {
+        "gap_pace": "grade-adjusted pace needs a route and a speed trace",
+        "aerobic_decoupling": "decoupling needs pace and heart rate over time",
+        "splits": "splits need a distance-over-time series",
+        "best_efforts": "best efforts need a distance-over-time series",
+        "hr_zones": "time in zones needs a heart-rate series, not an average",
+    }
+    if distance <= 0:
+        unavailable["distance"] = "not entered"
+        unavailable["pace"] = "no distance, so pace cannot be derived"
+
+    # A single average heart rate over a known duration is exactly the session
+    # form of Banister TRIMP, so it is a real figure rather than a stand-in --
+    # the same function the ingestion path uses, given one sample and the whole
+    # duration as its step.
+    if body.avg_hr:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+        trimp, reason = calculate_banister_trimp(
+            heart_rates=[float(body.avg_hr)],
+            dt=body.duration_sec,
+            max_hr=(profile.max_hr if profile else 190),
+            resting_hr=(profile.resting_hr if profile else 50),
+            gender=(profile.gender if profile else "male"),
+        )
+        if trimp is not None:
+            activity.trimp_banister = trimp
+            activity.r_tss = trimp
+        elif reason:
+            unavailable["r_tss"] = reason
+    else:
+        unavailable["r_tss"] = (
+            "training load needs a pace trace or a heart rate; neither was entered"
+        )
+
+    activity.data_quality = {"entered_by_hand": True, "unavailable": unavailable}
+    activity.xp = activity_xp(activity.r_tss, distance, body.duration_sec)
+
+    db.add(activity)
+    db.commit()
+
+    # The fitness curve reads stored load, so it has to be rebuilt for the day
+    # this lands on -- which may be months ago.
+    ActivityProcessor(db, user)._update_daily_pmc(start.date())
+    db.refresh(activity)
+    return activity
+
+
 @router.get("/tags")
 def workout_tags(_: User = Depends(current_user)):
     """The tag vocabulary, so the client never invents one the server rejects."""

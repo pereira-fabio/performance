@@ -186,6 +186,30 @@ slow and inflate every load figure computed against it.
 It is offered as a button and never applied on its own. An athlete who has
 measured their threshold in a test knows better than either estimate.
 
+## Adding an activity by hand
+
+**Menu → Add an activity.** For a session that never reached the phone at all:
+a watch that failed to export it, a run on someone else's device, a race with
+nothing but a result.
+
+It asks only for what a person can know — what it was, when, how long, how far,
+average and maximum heart rate, ascent, calories, steps. Pace is not asked for,
+because it follows from distance and duration and asking would invite the two to
+disagree. Grade-adjusted pace, decoupling, fitness and fatigue are not offered
+at all: a figure typed into those would be indistinguishable from one this
+server computed, and would corrupt every trend built on them.
+
+**Training load comes from the average heart rate.** A single average over a
+known duration is exactly the session form of Banister TRIMP, so it is a real
+figure through the same function the ingestion path uses — not a stand-in.
+Without a heart rate there is no load, and it is left unavailable rather than
+guessed.
+
+Splits, best efforts, zones and grade-adjusted pace need a recording second by
+second, so a hand-entered activity has none and never will. It counts towards
+volume and, where it has a heart rate, towards the fitness curve. It is marked
+as entered by hand.
+
 ## What you can change afterwards
 
 An activity can be renamed, moved to a different sport, tagged with the kind of
