@@ -94,6 +94,24 @@ Without this, one summary sample from the recording app stopped the reader ever
 looking further, and a run arrived with **no pace, no moving time and no
 distance** despite a detailed series sitting in Health Connect from another app.
 
+### A run reported as a generic workout
+
+Health Connect carries an exercise type, and some apps report a useless one.
+Nothing X records its **Free training** as `EXERCISE_TYPE_OTHER_WORKOUT`
+whatever the session was, so an indoor run arrives indistinguishable from a
+circuit session and is stored as gym work — out of running load, records and the
+fitness curve.
+
+That mapping is deliberate: calling an unknown workout a run would put circuit
+sessions in your running totals, which is the worse mistake. But it means a
+winter of treadmill runs can go missing from a run count while sitting in the
+Gym tab all along. `year_summary.py` shows the shape of it — months with no runs
+and a pile of gym sessions — and `reclassify.py` moves them in bulk.
+
+Reclassifying does not create splits or best efforts. Those are found during
+ingestion and a session that was never a run has none, so re-sync anything you
+want records from.
+
 ### An activity the vendor app has and Health Connect does not
 
 The companion reads Health Connect and nothing else. A run visible in Nothing X,

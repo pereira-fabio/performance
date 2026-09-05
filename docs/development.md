@@ -169,6 +169,7 @@ Run with `docker exec -it performance-backend python /data/<script>.py`.
 | `check_gps.py` | GPS and elevation coverage |
 | `inspect_activity.py` | What one activity arrived with: every channel, its coverage, and the recorded reason for each missing figure. Defaults to the most recent |
 | `year_summary.py` | A year by sport and by month, for comparing the server's count against the phone's. A run filed as gym work is the usual reason the two disagree |
+| `reclassify.py` | Move activities between sports in bulk, by date range or duration. For a winter of indoor runs a device reported as generic workouts |
 | `inspect_conflicts.py` | The activities the verifier flagged, with context |
 | `backfill_effort.py` | Training effect, recovery and XP for activities stored before they existed |
 | `backfill_tags.py` | Session tags for runs stored before tagging existed. Dry run unless given `--apply`; never touches a tag already set |
