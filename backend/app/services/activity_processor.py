@@ -245,9 +245,7 @@ class ActivityProcessor:
             if summary is not None:
                 return summary
             raise ValueError(
-                "Session carries no usable data: needs either a GPS route, a "
-                "speed series, a heart rate series of at least 30 seconds, or "
-                "a distance."
+                "Session has no duration, so there is nothing to record."
             )
 
         quality: Dict[str, Any] = tl.quality_report()
@@ -687,11 +685,17 @@ class ActivityProcessor:
         between them. That is enough to be an activity, and for a first 10 km
         it is the part anyone cares about.
 
-        Returns None when there is not even that, leaving the caller to reject.
+        Returns None only when the session has no duration at all, which is a
+        broken record rather than a sparse one.
+
+        A session with a duration and nothing else is still kept. It is a
+        recorded workout, it is the athlete's, and the cost of the two mistakes
+        is not equal: an activity nobody wanted takes one tap to delete, while
+        one silently discarded is noticed months later, if ever.
         """
         distance = _clean(payload.distance_meters)
         duration = (end_time - start_time).total_seconds()
-        if not distance or distance <= 0 or duration <= 0:
+        if duration <= 0:
             return None
 
         existing = (
@@ -718,31 +722,35 @@ class ActivityProcessor:
         # Without speed there is no way to tell moving from stopped, so the
         # whole session is reported as moving and the fact is recorded.
         activity.moving_time_sec = duration
-        activity.distance_meters = distance
-        activity.avg_speed_mps = distance / duration
-        activity.avg_pace_sec_km = duration / (distance / 1000.0)
+        # The column cannot be null, so an unmeasured distance is stored as
+        # zero and reported as unavailable. The interface shows a dash for it,
+        # never a zero, which is the whole reason data_quality exists.
+        activity.distance_meters = distance or 0.0
+        activity.avg_speed_mps = (distance / duration) if distance else None
+        activity.avg_pace_sec_km = (duration / (distance / 1000.0)) if distance else None
         activity.calories_kcal = _clean(payload.calories_kcal)
         activity.steps = int(payload.steps) if payload.steps else None
         activity.vo2_max = _clean(payload.vo2_max)
         activity.hr_coverage = 0.0
         activity.source = "health_connect"
-        activity.data_quality = {
-            "summary_only": True,
-            "unavailable": {
-                "moving_time": "no speed data, so moving time cannot be separated "
-                               "from elapsed time; elapsed duration reported instead",
+        unavailable = {
+            "moving_time": "no speed data, so moving time cannot be separated "
+                           "from elapsed time; elapsed duration reported instead",
                 "heart_rate": "the session carried no heart-rate series",
                 "elevation": "the session carried no route or altitude",
                 "gap_pace": "no elevation data, so pace cannot be grade-adjusted",
                 "training_load": "training load needs a pace or heart-rate series, "
                                  "and this session carried neither",
-                "splits": "splits need a distance-over-time series",
-                "best_efforts": "best efforts need a distance-over-time series",
-            },
+            "splits": "splits need a distance-over-time series",
+            "best_efforts": "best efforts need a distance-over-time series",
         }
+        if not distance:
+            unavailable["distance"] = "the session recorded no distance"
+            unavailable["pace"] = "no distance, so pace cannot be derived"
+        activity.data_quality = {"summary_only": True, "unavailable": unavailable}
         # XP counts distance and time, both of which are known. Training load is
         # not, so it contributes nothing rather than a guess.
-        activity.xp = activity_xp(None, distance, duration)
+        activity.xp = activity_xp(None, distance or 0.0, duration)
 
         if existing is None:
             self.db.add(activity)

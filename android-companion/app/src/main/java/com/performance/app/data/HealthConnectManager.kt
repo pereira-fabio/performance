@@ -123,13 +123,6 @@ class HealthConnectManager(private val context: Context) {
         )
         const val DEFAULT_SPORT_NAME = "other"
 
-        /**
-         * A session shorter than this, carrying no route, heart rate, speed or
-         * distance, has nothing to analyse. The server rejects it with HTTP
-         * 422, so it is filtered here rather than sent to collect an error.
-         */
-        private const val MIN_SYNCABLE_DURATION_SEC = 60L
-
         /** How far either side of a session to look for a VO2 max reading. */
         private const val VO2_LOOKUP_DAYS = 120L
 
@@ -523,23 +516,28 @@ class HealthConnectManager(private val context: Context) {
                 }
 
                 val durationSec = ChronoUnit.SECONDS.between(sessionStart, sessionEnd)
-                // A distance counts as data. Older devices and some apps write
-                // a session and its totals and no series at all, and dropping
-                // those threw the activity away entirely -- including, on this
-                // install, somebody's first 10 km. The server stores what such
-                // a session has and names everything it cannot derive.
-                val hasAnyData = routePoints.isNotEmpty() || hrSeries.isNotEmpty() ||
-                    speedSeries.isNotEmpty() || (distance ?: 0.0) > 0.0
-                if (!hasAnyData || durationSec < MIN_SYNCABLE_DURATION_SEC) {
+
+                // Everything the phone recorded is sent. There was a filter
+                // here for sessions carrying no route, heart rate or speed,
+                // and it was wrong in the way that matters: an activity nobody
+                // wanted takes one tap to delete, while a real run silently
+                // dropped is noticed months later, if at all. It cost this
+                // install a first 10 km, and the filter could not say which
+                // sessions it had eaten.
+                //
+                // A session with no duration is not a judgement call -- there
+                // is no workout there and the server has nothing to store.
+                if (durationSec <= 0) {
                     skippedEmpty++
-                    Log.d(
-                        TAG,
-                        "Skipping session ${record.metadata.id}: ${durationSec}s, " +
-                            "route=${routePoints.size}, hr=${hrSeries.size}, " +
-                            "speed=${speedSeries.size}, distance=${distance ?: 0.0}"
-                    )
+                    Log.d(TAG, "Skipping session ${record.metadata.id}: no duration")
                     continue
                 }
+                Log.d(
+                    TAG,
+                    "Sending ${record.metadata.id} (${record.metadata.dataOrigin.packageName}): " +
+                        "${durationSec}s, route=${routePoints.size}, hr=${hrSeries.size}, " +
+                        "speed=${speedSeries.size}, distance=${distance ?: 0.0}"
+                )
 
                 val sportName = SPORT_TYPE_NAMES[record.exerciseType] ?: run {
                     // Surface the raw type so an unmapped activity can be given

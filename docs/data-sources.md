@@ -59,9 +59,17 @@ of an activity it already has.
 
 ### Sessions that are only totals
 
-Some devices write a session and its totals and no series at all. A distance
-over a duration is still a run that happened, so it is stored: distance,
-duration, and the average pace between them.
+**Everything the phone recorded is sent, and everything with a duration is
+stored.** There is no filter for sessions that look empty.
+
+That is deliberate, and it replaced one. A filter here dropped sessions
+carrying no route, heart rate or speed, and the cost of its two mistakes was
+never equal: an activity nobody wanted takes one tap to delete, while a real
+run silently discarded is noticed months later, if at all. It cost this install
+a first 10 km, and could not say which sessions it had eaten.
+
+A session with a distance and a duration is stored with those and the average
+pace between them. A session with only a duration is stored with only that.
 
 Nothing else is derived from it. There is no pace curve, no zones, no splits,
 no training load — and none of them are invented. Filling a constant speed into
