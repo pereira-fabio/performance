@@ -57,6 +57,20 @@ Additional access. The next sync picks the run up and fills it in: the app
 re-reads the last seven days every time, and the server accepts a richer version
 of an activity it already has.
 
+### Sessions that are only totals
+
+Some devices write a session and its totals and no series at all. A distance
+over a duration is still a run that happened, so it is stored: distance,
+duration, and the average pace between them.
+
+Nothing else is derived from it. There is no pace curve, no zones, no splits,
+no training load — and none of them are invented. Filling a constant speed into
+a timeline would produce splits, a grade-adjusted pace and a pace chart that all
+look measured and are not. The activity records what is missing and why.
+
+A later sync carrying the full series replaces it in place; one carrying only
+totals can never replace a fuller version.
+
 ### When a series is only a summary
 
 Some apps write one speed value for a whole session rather than a series. Each

@@ -124,9 +124,9 @@ class HealthConnectManager(private val context: Context) {
         const val DEFAULT_SPORT_NAME = "other"
 
         /**
-         * A session shorter than this carrying no route, heart rate or speed
-         * has nothing to analyse. The server rejects it with HTTP 422, so it is
-         * filtered here rather than sent to collect an error.
+         * A session shorter than this, carrying no route, heart rate, speed or
+         * distance, has nothing to analyse. The server rejects it with HTTP
+         * 422, so it is filtered here rather than sent to collect an error.
          */
         private const val MIN_SYNCABLE_DURATION_SEC = 60L
 
@@ -523,14 +523,20 @@ class HealthConnectManager(private val context: Context) {
                 }
 
                 val durationSec = ChronoUnit.SECONDS.between(sessionStart, sessionEnd)
-                val hasAnyData =
-                    routePoints.isNotEmpty() || hrSeries.isNotEmpty() || speedSeries.isNotEmpty()
+                // A distance counts as data. Older devices and some apps write
+                // a session and its totals and no series at all, and dropping
+                // those threw the activity away entirely -- including, on this
+                // install, somebody's first 10 km. The server stores what such
+                // a session has and names everything it cannot derive.
+                val hasAnyData = routePoints.isNotEmpty() || hrSeries.isNotEmpty() ||
+                    speedSeries.isNotEmpty() || (distance ?: 0.0) > 0.0
                 if (!hasAnyData || durationSec < MIN_SYNCABLE_DURATION_SEC) {
                     skippedEmpty++
                     Log.d(
                         TAG,
-                        "Skipping empty session ${record.metadata.id}: " +
-                            "${durationSec}s, route=${routePoints.size}, hr=${hrSeries.size}"
+                        "Skipping session ${record.metadata.id}: ${durationSec}s, " +
+                            "route=${routePoints.size}, hr=${hrSeries.size}, " +
+                            "speed=${speedSeries.size}, distance=${distance ?: 0.0}"
                     )
                     continue
                 }

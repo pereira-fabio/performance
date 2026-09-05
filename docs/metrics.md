@@ -283,6 +283,14 @@ The radar chart under **Stats** scores five attributes out of 100 — endurance,
 
 ---
 
+## Sessions with only totals
+
+A session that arrives as a distance and a duration with no series behind it is
+stored with those and the average pace between them. Training load, zones,
+splits and best efforts all need a timeline, so they stay unavailable rather
+than being derived from an assumed constant speed — which would produce a pace
+chart, splits and a grade-adjusted pace that look measured and are not.
+
 ## When a figure is missing
 
 Every activity carries a `data_quality` record: which channels were present, what fraction of the session each covered, what was estimated, and why anything absent is absent.

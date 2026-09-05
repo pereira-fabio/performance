@@ -236,9 +236,18 @@ class ActivityProcessor:
             elevation_provider=self._dem_elevation,
         )
         if tl is None:
+            # No series of any kind, but a session that covered a real distance
+            # over a real duration is still a run that happened. Older devices,
+            # and some apps, write nothing but the totals -- and refusing them
+            # threw away the activity entirely, which is a worse answer than
+            # storing what there is and naming everything that is missing.
+            summary = self._store_summary(payload, start_time, end_time)
+            if summary is not None:
+                return summary
             raise ValueError(
                 "Session carries no usable data: needs either a GPS route, a "
-                "speed series, or a heart rate series of at least 30 seconds."
+                "speed series, a heart rate series of at least 30 seconds, or "
+                "a distance."
             )
 
         quality: Dict[str, Any] = tl.quality_report()
@@ -659,6 +668,84 @@ class ActivityProcessor:
                     ),
                 ))
 
+        self.db.commit()
+        self._update_daily_pmc(activity.start_time.date())
+        self.db.refresh(activity)
+        return activity
+
+    def _store_summary(self, payload, start_time, end_time):
+        """
+        Store a session that arrived as totals with no series behind them.
+
+        Everything the physiology engine does needs a timeline: pace curves,
+        zones, splits, decoupling, training load. None of that can be had from
+        a distance and a duration, and none of it is invented here -- a
+        constant speed would produce a flat pace chart, splits and a
+        grade-adjusted pace that all look measured and are not.
+
+        What can be had honestly is distance, duration and the average pace
+        between them. That is enough to be an activity, and for a first 10 km
+        it is the part anyone cares about.
+
+        Returns None when there is not even that, leaving the caller to reject.
+        """
+        distance = _clean(payload.distance_meters)
+        duration = (end_time - start_time).total_seconds()
+        if not distance or distance <= 0 or duration <= 0:
+            return None
+
+        existing = (
+            self.db.query(Activity)
+            .filter(Activity.user_id == self.account.id,
+                    Activity.external_id == payload.session_id)
+            .first()
+        )
+        # A later sync carrying only totals must never replace one that arrived
+        # with a route and a heart-rate trace behind it.
+        if existing is not None and existing.streams is not None:
+            print(f"↩️  Keeping the fuller version of {existing.id}: "
+                  f"this sync carried totals only")
+            return existing
+
+        activity = existing or Activity(
+            external_id=payload.session_id, user_id=self.account.id
+        )
+        activity.sport_type = (payload.sport_type or "running").lower()
+        activity.name = payload.title or _default_name(activity.sport_type)
+        activity.start_time = start_time
+        activity.end_time = end_time
+        activity.elapsed_time_sec = duration
+        # Without speed there is no way to tell moving from stopped, so the
+        # whole session is reported as moving and the fact is recorded.
+        activity.moving_time_sec = duration
+        activity.distance_meters = distance
+        activity.avg_speed_mps = distance / duration
+        activity.avg_pace_sec_km = duration / (distance / 1000.0)
+        activity.calories_kcal = _clean(payload.calories_kcal)
+        activity.steps = int(payload.steps) if payload.steps else None
+        activity.vo2_max = _clean(payload.vo2_max)
+        activity.hr_coverage = 0.0
+        activity.source = "health_connect"
+        activity.data_quality = {
+            "summary_only": True,
+            "unavailable": {
+                "moving_time": "no speed data, so moving time cannot be separated "
+                               "from elapsed time; elapsed duration reported instead",
+                "heart_rate": "the session carried no heart-rate series",
+                "elevation": "the session carried no route or altitude",
+                "gap_pace": "no elevation data, so pace cannot be grade-adjusted",
+                "training_load": "training load needs a pace or heart-rate series, "
+                                 "and this session carried neither",
+                "splits": "splits need a distance-over-time series",
+                "best_efforts": "best efforts need a distance-over-time series",
+            },
+        }
+        # XP counts distance and time, both of which are known. Training load is
+        # not, so it contributes nothing rather than a guess.
+        activity.xp = activity_xp(None, distance, duration)
+
+        if existing is None:
+            self.db.add(activity)
         self.db.commit()
         self._update_daily_pmc(activity.start_time.date())
         self.db.refresh(activity)
