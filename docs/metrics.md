@@ -199,7 +199,42 @@ whose own figures disagree. A wrong distance is a re-sync, not a correction.
 
 The tag is the athlete's, not the watch's: a device records what happened, and
 only the runner knows whether an easy pace was a recovery jog or all they had
-left.
+left. Runs arrive with a suggested one, and **a tag you set is never
+overwritten**, including by a re-sync.
+
+### How a run is tagged automatically
+
+Two decisions shape it.
+
+**Sessions are judged against the athlete's own runs, not against absolutes.**
+Intensity is measured relative to threshold pace, which people set once and
+often not at all — and left at its default every run of a slower athlete looks
+like a recovery jog. Comparing a session with the median of their recent ones
+asks "was this harder than usual *for you*", which is the real question and
+stays right even when the threshold is wrong. Below five previous runs there is
+no median worth having, so it falls back to the textbook fractions of threshold
+speed.
+
+**It never guesses "race".** A race and a hard tempo are identical in the data,
+and the two mistakes do not cost the same: an untagged race takes a moment to
+label, while a training run recorded as a race quietly becomes part of a
+history that never happened.
+
+| Tag | When |
+| :-- | :-- |
+| `interval` | The pace swings far more than a hill would explain |
+| `long` | Over 90 minutes, or over an hour and much longer than usual |
+| `tempo` | Meaningfully harder than the athlete's usual run |
+| `recovery` | Meaningfully easier |
+| `easy` | Everything else with a usable intensity |
+| *none* | Not a run, or nothing to go on — better than a word nobody chose |
+
+Intervals are detected from the smoothed speed trace rather than from splits,
+because repetitions shorter than a kilometre average out inside one and leave a
+session of them looking perfectly even. A steady run varies by well under a
+percent on that measure and a hilly one by around nine; repetitions are past
+twenty. Splits are used as a fallback for a device that recorded no usable
+speed.
 
 ## Zones, splits and best efforts
 

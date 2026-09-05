@@ -18,6 +18,7 @@ from backend.app.models.models import (
     Activity, ActivityStream, ActivitySplit, BestEffort, DailyHealth, UserProfile, User,
 )
 from backend.app.models.schemas import HealthConnectSessionPayload
+from statistics import median
 from backend.app.physiology.resample import build_timeline, Timeline
 from backend.app.physiology.dem import (
     sample_elevation, smooth_elevation, elevation_gain_loss,
@@ -37,8 +38,9 @@ from backend.app.physiology.effect import (
     aerobic_training_effect, anaerobic_training_effect, recovery_hours,
 )
 from backend.app.physiology.progress import activity_xp
+from backend.app.physiology.tagging import speed_variation, suggest_tag
 from backend.app.core.config import settings
-from backend.app.core.sports import is_running
+from backend.app.core.sports import RUNNING_SPORTS, is_running
 
 # Persisted stream resolution. The analysis grid is 1 Hz; storing every second
 # of a long run is wasteful for a map and a couple of charts.
@@ -55,6 +57,11 @@ FASTEST_WINDOW_SEC = 30.0
 
 # How many prior sessions define what "typical" means for this athlete.
 TYPICAL_SESSION_WINDOW = 20
+
+# Below this many previous runs a median is a coincidence, so the tagger falls
+# back to absolute fractions of threshold pace rather than calibrating against
+# almost nothing.
+MIN_RUNS_FOR_RELATIVE_TAGS = 5
 
 # Intensity above this is not sustainable over a session, so it indicates bad
 # pace data rather than a heroic effort.
@@ -113,6 +120,36 @@ class ActivityProcessor:
         self.db = db
         self.account = account
         self.user = self._get_or_create_user_profile()
+
+    def _typical_running(self, before):
+        """
+        The athlete's usual running intensity and duration, before this session.
+
+        What the tagger compares against. Medians, and only running, so one
+        interval week does not make every steady run afterwards look easy.
+        Returns (None, None) until there is enough to compare with, which the
+        tagger reads as "no history" rather than as a zero.
+        """
+        rows = (
+            self.db.query(Activity.intensity_factor, Activity.moving_time_sec)
+            .filter(
+                Activity.user_id == self.account.id,
+                Activity.sport_type.in_(RUNNING_SPORTS),
+                Activity.start_time < before,
+            )
+            .order_by(Activity.start_time.desc())
+            .limit(TYPICAL_SESSION_WINDOW)
+            .all()
+        )
+        intensities = [float(i) for i, _ in rows if i and i > 0]
+        durations = [float(d) for _, d in rows if d and d > 0]
+        # Below a handful of runs a median is a coincidence, and calibrating
+        # against one would be worse than the textbook fractions.
+        enough = MIN_RUNS_FOR_RELATIVE_TAGS
+        return (
+            median(intensities) if len(intensities) >= enough else None,
+            median(durations) if len(durations) >= enough else None,
+        )
 
     def _typical_session_load(self, sport_type: str, before, fallback) -> float:
         """
@@ -567,9 +604,34 @@ class ActivityProcessor:
             stream_data={"points": self._serialise_stream(tl)},
         ))
 
-        for split in self._compute_splits(tl):
+        computed_splits = self._compute_splits(tl)
+        for split in computed_splits:
             split.activity_id = activity.id
             self.db.add(split)
+
+        # Describe the session, but never over the athlete. A tag they chose --
+        # or cleared deliberately -- survives every later re-sync, which is the
+        # difference between a helpful default and one that keeps undoing you.
+        if not activity.workout_tag:
+            typical_if, typical_duration = self._typical_running(start_time)
+            activity.workout_tag = suggest_tag(
+                sport_type=activity.sport_type,
+                moving_time_sec=activity.moving_time_sec,
+                intensity_factor=activity.intensity_factor,
+                splits=[{
+                    "pace_sec_km": sp.pace_sec_km,
+                    "gap_sec_km": sp.gap_sec_km,
+                    "is_partial": sp.is_partial,
+                } for sp in computed_splits],
+                typical_intensity=typical_if,
+                typical_duration_sec=typical_duration,
+                # From the trace rather than the splits: repetitions shorter
+                # than a kilometre average out inside one and leave an interval
+                # session looking perfectly even.
+                speed_variation=(
+                    speed_variation(list(tl.speed)) if tl.speed is not None else None
+                ),
+            )
 
         # A walk covering 5 km is not a 5k personal record, so best efforts are
         # only derived for sports whose pace is comparable to a run.

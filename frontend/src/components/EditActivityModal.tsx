@@ -173,7 +173,7 @@ export const EditActivityModal: React.FC<{
         <div className="mt-6 pt-4 border-t border-line">
           {!confirming ? (
             <button type="button" onClick={() => setConfirming(true)}
-                    className="text-xs text-faint hover:text-negative transition">
+                    className="text-xs font-semibold text-negative hover:underline transition">
               Delete this activity
             </button>
           ) : (
