@@ -94,6 +94,26 @@ Without this, one summary sample from the recording app stopped the reader ever
 looking further, and a run arrived with **no pace, no moving time and no
 distance** despite a detailed series sitting in Health Connect from another app.
 
+### An activity the vendor app has and Health Connect does not
+
+The companion reads Health Connect and nothing else. A run visible in Nothing X,
+Garmin Connect or Samsung Health but absent from Health Connect cannot be read
+at all — there is nothing to read.
+
+Vendor apps generally only export **forward** from the moment their Health
+Connect integration was switched on, and a single failed write is never retried.
+So one run missing while every other run of the same period is present is
+normal, and not a sign of anything wrong on this side.
+
+Check by opening Health Connect itself and browsing **Exercise** for that day.
+If it is absent there, the ways to recover it are:
+
+- **Export it from the vendor app or from any other service that received it** —
+  Strava, for one, often has a copy — and use
+  [file import](#file-import). A GPX or TCX carries the whole run.
+- Otherwise it is gone. Nothing on this server can reconstruct a session that
+  was never exported.
+
 ### Duplicates from other apps
 
 Health Connect is a shared store. Strava writes your runs back into it, so a run recorded by your watch can appear twice — once from the watch, once from Strava, often with a different distance.
