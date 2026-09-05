@@ -60,6 +60,15 @@ class HealthConnectManager(private val context: Context) {
         private const val TAG = "PeakPace"
 
         /**
+         * Below this a set of records is a summary rather than a series.
+         *
+         * Nothing sensible comes from three speed values spread over an hour:
+         * no pace curve, no moving time, no distance. If the session's own app
+         * wrote only that, it is worth looking at what else is on the phone.
+         */
+        private const val MIN_SERIES_SAMPLES = 5
+
+        /**
          * Health Connect caps a single read; without following the page token
          * a long backfill is silently truncated part-way through a session.
          */
@@ -227,6 +236,24 @@ class HealthConnectManager(private val context: Context) {
      * this way recovers sessions written by one app whose heart rate was
      * recorded by another -- otherwise they look empty and get dropped.
      */
+    /**
+     * How many measurements a set of records actually carries.
+     *
+     * Matched on each concrete type rather than on the SeriesRecord interface
+     * they share, because that interface is internal to the library and cannot
+     * be referenced from here. Anything else counts as one, which is what a
+     * non-series record is.
+     */
+    private fun sampleCount(records: List<Record>): Int =
+        records.sumOf { record ->
+            when (record) {
+                is HeartRateRecord -> record.samples.size
+                is SpeedRecord -> record.samples.size
+                is StepsCadenceRecord -> record.samples.size
+                else -> 1
+            }
+        }
+
     private suspend fun <T : Record> readSeriesWithFallback(
         type: KClass<T>,
         filter: TimeRangeFilter,
@@ -234,15 +261,32 @@ class HealthConnectManager(private val context: Context) {
         excludedPackages: Set<String>
     ): List<T> {
         val own = readAll(type, filter, origins)
-        if (own.isNotEmpty()) return own
+        val ownSamples = sampleCount(own)
+
+        // A handful of samples across a whole session is a summary, not a
+        // series -- some apps write one speed value for an entire run. This
+        // used to return the moment anything came back from the session's own
+        // origin, so a single summary sample stopped it ever looking at the
+        // detailed series another app on the phone had written, and the run
+        // arrived with no pace, no moving time and no distance at all.
+        if (ownSamples >= MIN_SERIES_SAMPLES) return own
+
         // Excluded sources stay excluded here too, otherwise data the user
         // rejected would return through the fallback.
         val any = readAll(type, filter, emptySet())
             .filter { it.metadata.dataOrigin.packageName !in excludedPackages }
-        if (any.isNotEmpty()) {
-            Log.d(TAG, "${type.simpleName}: none from session origin, using ${any.size} from other origins")
+        val anySamples = sampleCount(any)
+
+        // Samples rather than sums, so preferring a richer source cannot
+        // double-count the way adding two apps' distance totals would.
+        if (anySamples > ownSamples) {
+            val sources = any.map { it.metadata.dataOrigin.packageName }.distinct()
+            Log.d(TAG, "${type.simpleName}: session origin had $ownSamples sample(s), " +
+                       "using $anySamples from $sources")
+            return any
         }
-        return any
+        Log.d(TAG, "${type.simpleName}: only $ownSamples sample(s) available anywhere")
+        return own
     }
 
     private suspend fun <T : Any> aggregateOrNull(

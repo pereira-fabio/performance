@@ -41,6 +41,21 @@ Health Connect hides these under **App permissions → Performance Sync → Addi
 
 If a backfill mysteriously stops a month back, this is why.
 
+### When a series is only a summary
+
+Some apps write one speed value for a whole session rather than a series. Each
+channel is therefore read from the session's own app first, and if that returns
+only a handful of samples, from every other source on the phone as well — taking
+whichever is richer.
+
+Samples, never sums. Preferring another app's series cannot double-count the way
+adding two apps' distance totals would, and a source the athlete excluded stays
+excluded in the fallback.
+
+Without this, one summary sample from the recording app stopped the reader ever
+looking further, and a run arrived with **no pace, no moving time and no
+distance** despite a detailed series sitting in Health Connect from another app.
+
 ### Duplicates from other apps
 
 Health Connect is a shared store. Strava writes your runs back into it, so a run recorded by your watch can appear twice — once from the watch, once from Strava, often with a different distance.
