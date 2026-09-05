@@ -229,6 +229,21 @@ history that never happened.
 | `easy` | Everything else with a usable intensity |
 | *none* | Not a run, or nothing to go on — better than a word nobody chose |
 
+Runs stored before tagging existed can be labelled without re-syncing them:
+
+```bash
+docker exec -it performance-backend python /data/backfill_tags.py          # dry run
+docker exec -it performance-backend python /data/backfill_tags.py --apply
+```
+
+It reproduces what ingestion does, with one deliberate difference: the earliest
+runs of an account are judged against the whole history rather than against
+absolute fractions of threshold pace. Ingestion cannot do that — when a run
+arrives, the runs after it do not exist — but a backfill can, and without it the
+first sessions of an account get measured against a threshold pace that is very
+often still the default, coming out as recovery jogs while identical runs later
+in the same history come out as easy.
+
 Intervals are detected from the smoothed speed trace rather than from splits,
 because repetitions shorter than a kilometre average out inside one and leave a
 session of them looking perfectly even. A steady run varies by well under a

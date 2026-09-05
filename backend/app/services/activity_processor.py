@@ -629,7 +629,8 @@ class ActivityProcessor:
                 # than a kilometre average out inside one and leave an interval
                 # session looking perfectly even.
                 speed_variation=(
-                    speed_variation(list(tl.speed)) if tl.speed is not None else None
+                    speed_variation(list(tl.speed), sample_interval_sec=tl.dt)
+                    if tl.speed is not None else None
                 ),
             )
 

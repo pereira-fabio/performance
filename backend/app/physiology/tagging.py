@@ -167,7 +167,11 @@ def suggest_tag(
     return "easy"
 
 
-def speed_variation(speeds: Sequence[float], smooth_sec: int = 30) -> Optional[float]:
+def speed_variation(
+    speeds: Sequence[float],
+    smooth_sec: int = 30,
+    sample_interval_sec: float = 1.0,
+) -> Optional[float]:
     """
     How much the pace swings over a session, on a smoothed trace.
 
@@ -175,16 +179,23 @@ def speed_variation(speeds: Sequence[float], smooth_sec: int = 30) -> Optional[f
     does and would make every run look like intervals. Only moving samples
     count, so a session with a long stop is not read as one enormous rep.
 
+    The window is given in seconds and converted using the spacing of the
+    samples, because these do not always arrive one a second: a stored stream
+    is thinned on the way into the database, and smoothing thirty of those as
+    though they were thirty seconds would flatten a session far past the point
+    where repetitions are still visible.
+
     Returned as mean absolute deviation over the median, which a single dropout
     moves far less than a standard deviation would.
     """
     moving = [float(v) for v in speeds if v is not None and v > 0.5]
+    window = max(1, int(round(smooth_sec / max(sample_interval_sec, 0.001))))
     # Two smoothing windows of data at the very least, or the smoothing has
     # nothing to average and the answer is noise.
-    if len(moving) < smooth_sec * 2:
+    if len(moving) < window * 2:
         return None
 
-    half = max(1, smooth_sec // 2)
+    half = max(1, window // 2)
     smoothed = []
     for i in range(len(moving)):
         low, high = max(0, i - half), min(len(moving), i + half + 1)
