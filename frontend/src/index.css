@@ -129,3 +129,18 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/*
+ * Keep the map underneath the interface.
+ *
+ * Leaflet numbers its own layers generously -- panes from 200 to 700, controls
+ * at 800 and 1000 -- and gives the container position: relative without a
+ * z-index. With no z-index there is no stacking context, so those numbers are
+ * compared against everything else on the page and win: the map drew over the
+ * sticky header and straight through modals.
+ *
+ * A z-index on the positioned container makes one stacking context, and every
+ * number inside is then only compared with its siblings. Zero rather than a
+ * larger value because the map should sit below the chrome, not above it.
+ */
+.leaflet-container { z-index: 0; }
