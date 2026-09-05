@@ -21,3 +21,23 @@ CROSS_TRAINING_SPORTS = frozenset({
 
 def is_running(sport_type: Optional[str]) -> bool:
     return (sport_type or "running").lower() in RUNNING_SPORTS
+
+
+# What kind of session it was, as the athlete describes it. A watch records
+# what happened; only the runner knows whether an easy pace was a recovery jog
+# or all they had left, and the same numbers mean different things either way.
+#
+# Deliberately short. A list long enough to describe every session is one
+# nobody keeps up with, and an unused tag is worse than none.
+WORKOUT_TAGS = (
+    "recovery",
+    "easy",
+    "long",
+    "tempo",
+    "interval",
+    "race",
+)
+
+
+def is_valid_tag(tag) -> bool:
+    return tag is None or tag == "" or tag in WORKOUT_TAGS

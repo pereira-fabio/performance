@@ -4,11 +4,16 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
-from backend.app.models.models import UserProfile, Activity, User
+from backend.app.core.sports import RUNNING_SPORTS
+from backend.app.models.models import UserProfile, Activity, BestEffort, User
 from backend.app.api.auth import current_user
 from backend.app.models.schemas import UserProfileSchema
 from backend.app.services.activity_processor import ActivityProcessor
 from backend.app.physiology.body import composition
+from backend.app.physiology.vo2max import (
+    HOUR_EFFORT_MAX_SEC, HOUR_EFFORT_MIN_SEC, MAX_HOUR_EFFORT_SLOWDOWN,
+    best_estimate, threshold_pace_from_vdot,
+)
 from backend.app.services.avatars import (
     MAX_AVATAR_BYTES, avatar_path, media_type_of, remove_avatar, sniff, store,
 )
@@ -141,3 +146,90 @@ def read_avatar(user: User = Depends(current_user)):
 def delete_avatar(user: User = Depends(current_user)):
     remove_avatar(user.id)
     return {"stored": False}
+
+
+@router.get("/threshold-suggestion")
+def threshold_suggestion(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """
+    A threshold pace worked out from the athlete's own running.
+
+    Threshold pace is the one figure in the profile nobody can simply read off
+    a device, and left at its default every zone and every load figure is wrong.
+    So it is derived two ways, in order of preference:
+
+      1. The fastest run of about an hour. That is the definition of threshold
+         -- the pace you could hold for one -- so a real one beats any model.
+      2. Otherwise from VO2 max, measured or estimated, through the same
+         oxygen-cost curve that produced it.
+
+    Offered, never applied. An athlete who has measured their threshold in a
+    test knows better than either of these, and overwriting that would make the
+    zones worse.
+    """
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+
+    # VO2 max: whatever a device reported, else derived from a best effort.
+    measured = (
+        db.query(Activity.vo2_max)
+        .filter(Activity.user_id == user.id, Activity.vo2_max.isnot(None))
+        .order_by(Activity.start_time.desc()).first()
+    )
+    vo2 = measured[0] if measured else None
+    vo2_estimated = False
+    if vo2 is None:
+        efforts = (
+            db.query(BestEffort.distance_meters, BestEffort.time_seconds)
+            .join(Activity, Activity.id == BestEffort.activity_id)
+            .filter(Activity.user_id == user.id,
+                    Activity.sport_type.in_(RUNNING_SPORTS))
+            .all()
+        )
+        vo2 = best_estimate([(d, t) for d, t in efforts])
+        vo2_estimated = vo2 is not None
+
+    from_vo2 = threshold_pace_from_vdot(vo2)
+
+    # The fastest sustained hour, which is the definition rather than a model of
+    # it. Quickest rather than most recent: a steady hour understates threshold,
+    # and the quickest one came closest to being the effort this describes.
+    hour = (
+        db.query(Activity)
+        .filter(Activity.user_id == user.id,
+                Activity.sport_type.in_(RUNNING_SPORTS),
+                Activity.moving_time_sec >= HOUR_EFFORT_MIN_SEC,
+                Activity.moving_time_sec <= HOUR_EFFORT_MAX_SEC,
+                Activity.avg_pace_sec_km.isnot(None))
+        .order_by(Activity.avg_pace_sec_km.asc())
+        .first()
+    )
+
+    suggestion = None
+    basis = None
+    detail = None
+
+    if hour is not None:
+        pace = round(float(hour.avg_pace_sec_km), 1)
+        # A steady hour far slower than the model says was an easy long run,
+        # not a threshold effort. Taking it would set the threshold too slow,
+        # and every load figure computed against it too high.
+        plausible = from_vo2 is None or pace <= from_vo2 * MAX_HOUR_EFFORT_SLOWDOWN
+        if plausible:
+            suggestion, basis = pace, "hour_effort"
+            detail = (f"your quickest hour-long run, "
+                      f"{hour.start_time:%-d %B %Y}")
+
+    if suggestion is None and from_vo2 is not None:
+        suggestion, basis = from_vo2, "vo2max"
+        detail = (f"a VO\u2082 max of {round(vo2)}"
+                  + (", itself estimated from your best effort" if vo2_estimated else ""))
+
+    return {
+        "pace_sec_km": suggestion,
+        "basis": basis,
+        "detail": detail,
+        "current_pace_sec_km": float(profile.threshold_pace_sec) if profile else None,
+        "vo2_max": round(vo2, 1) if vo2 is not None else None,
+        "vo2_max_estimated": vo2_estimated,
+        "reason": None if suggestion else
+                  "Not enough running yet — a hard effort of 5 km or longer is what this needs.",
+    }

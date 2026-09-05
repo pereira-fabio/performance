@@ -85,3 +85,43 @@ def best_estimate(efforts: Iterable[Tuple[float, float]]) -> Optional[float]:
     """
     values = [v for v in (vdot(d, t) for d, t in efforts) if v is not None]
     return max(values) if values else None
+
+
+# Threshold is run at roughly this share of maximum oxygen uptake. Daniels puts
+# it at 86-88% for most runners; the upper end is used because the figure it
+# feeds -- threshold pace -- is a target, and a target set slightly ambitious is
+# corrected by the athlete, while one set slow is simply believed.
+THRESHOLD_FRACTION = 0.88
+
+# An hour is the classic definition of threshold: the pace you could hold for
+# one. Runs in this band are close enough to stand in for it.
+HOUR_EFFORT_MIN_SEC = 50 * 60
+HOUR_EFFORT_MAX_SEC = 75 * 60
+
+# A steady hour that is far slower than the VDOT estimate was not a threshold
+# effort, it was an easy long run. Believing it would set the threshold far too
+# slow, which then inflates every training-load figure computed against it.
+MAX_HOUR_EFFORT_SLOWDOWN = 1.20
+
+
+def threshold_pace_from_vdot(value: Optional[float]) -> Optional[float]:
+    """
+    Threshold pace in seconds per kilometre, from a VDOT.
+
+    Solves the oxygen-cost curve backwards: the velocity whose cost equals the
+    share of maximum sustainable at threshold. The same quadratic used to get
+    VDOT from a performance, read the other way.
+    """
+    if value is None or not (MIN_PLAUSIBLE <= value <= MAX_PLAUSIBLE):
+        return None
+
+    target = THRESHOLD_FRACTION * value
+    # 0.000104 v^2 + 0.182258 v - (4.60 + target) = 0
+    a, b, c = 0.000104, 0.182258, -(4.60 + target)
+    discriminant = b * b - 4 * a * c
+    if discriminant <= 0:
+        return None
+    velocity = (-b + math.sqrt(discriminant)) / (2 * a)   # metres per minute
+    if velocity <= 0:
+        return None
+    return round(60000.0 / velocity, 1)

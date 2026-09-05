@@ -159,6 +159,10 @@ class Activity(Base):
     # Metadata
     calories_kcal = Column(Float, nullable=True)
     vo2_max = Column(Float, nullable=True)
+    # What kind of session this was, as the athlete describes it. A watch
+    # records what happened; only the runner knows whether it was a recovery
+    # jog or a race, and the same numbers mean different things either way.
+    workout_tag = Column(String(32), nullable=True)
     source = Column(String(32), default="health_connect") # health_connect, gpx, fit, manual
     raw_payload_path = Column(String(512), nullable=True)
     notes = Column(Text, nullable=True)

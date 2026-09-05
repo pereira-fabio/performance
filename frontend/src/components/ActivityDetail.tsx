@@ -488,7 +488,16 @@ export const ActivityDetail: React.FC<Props> = ({ activity }) => {
       </div>
       <p className="text-[13px] text-muted tnum mb-2">
         {dateLabel(activity.start_time)} · {timeLabel(activity.start_time)} · {activity.sport_type}
+        {activity.workout_tag && (
+          <span className="ml-2 px-2 py-0.5 rounded-md bg-accent-soft text-accent
+                           text-2xs font-semibold uppercase tracking-wide not-italic">
+            {activity.workout_tag}
+          </span>
+        )}
       </p>
+      {activity.notes && (
+        <p className="mb-2 text-[13px] text-fg whitespace-pre-line">{activity.notes}</p>
+      )}
 
       {/* Coverage is stated rather than assumed: a metric computed from 40% of
           a session should be read differently from one computed from 98%. */}

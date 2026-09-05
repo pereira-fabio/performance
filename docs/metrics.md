@@ -161,6 +161,46 @@ Implausible measurements produce nothing rather than a figure — a waist entere
 in inches, or a height in metres, would otherwise give an answer that looks
 right. Neither figure is a diagnosis.
 
+## Threshold pace
+
+The one figure in the profile no device reports, and the one everything else is
+measured against: pace zones, rTSS and intensity all come from it. Left at its
+default of 4:00/km, a 6:00/km runner has every session land in the slowest zone
+and every load figure overstated.
+
+The profile therefore offers one, worked out from the athlete's own running, in
+order of preference:
+
+1. **The quickest run of about an hour** (50–75 minutes). That is the definition
+   of threshold — the pace you could hold for one — so a real effort beats any
+   model. The quickest rather than the most recent, because a steady hour
+   understates it.
+2. **Otherwise from VO2 max**, by solving the same oxygen-cost curve backwards
+   for the velocity at 88% of maximum, which is where Daniels puts threshold.
+   Checked against his published T-pace tables from VDOT 30 to 60.
+
+An hour more than 20% slower than the model says was an easy long run, not a
+threshold effort, and is ignored — believing it would set the threshold far too
+slow and inflate every load figure computed against it.
+
+It is offered as a button and never applied on its own. An athlete who has
+measured their threshold in a test knows better than either estimate.
+
+## What you can change afterwards
+
+An activity can be renamed, moved to a different sport, tagged with the kind of
+session it was — recovery, easy, long, tempo, intervals, race — annotated, and
+given a calorie or step count the device never wrote.
+
+**Distance, duration and heart rate are not editable.** Pace, load, zones,
+records and the fitness curve are all computed from them, and changing one
+without replaying the session through the physiology engine leaves an activity
+whose own figures disagree. A wrong distance is a re-sync, not a correction.
+
+The tag is the athlete's, not the watch's: a device records what happened, and
+only the runner knows whether an easy pace was a recovery jog or all they had
+left.
+
 ## Zones, splits and best efforts
 
 - **Heart-rate zones** from your max, resting and threshold heart rates, and **pace zones** from your threshold pace. Every zone is shown, including those with no time in them: an empty zone says the effort never reached it, and hiding it makes the chart look like it is missing rows. Where almost everything lands in one zone, the thresholds it is measured against are usually still the defaults, and the activity page says so.

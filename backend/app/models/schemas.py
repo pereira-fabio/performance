@@ -118,6 +118,9 @@ class ActivitySummaryOut(BaseModel):
     # Per-channel coverage plus an `unavailable` map explaining any metric the
     # data did not support. Clients should show absence, not substitute zero.
     data_quality: Optional[Dict[str, Any]] = None
+    # What kind of session the athlete says it was. On the summary rather than
+    # the detail, so a list can show it without loading every stream.
+    workout_tag: Optional[str] = None
     source: str
     created_at: datetime
 

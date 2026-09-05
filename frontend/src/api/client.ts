@@ -2,7 +2,7 @@ import axios from 'axios';
 import {
   Activity, PMCPoint, DashboardSummary, UserProfile, BestEffort, HomeData,
   AdminAccount, AdminOverview, BackupFile, PeriodReport, ReportPeriodOption,
-  TrainingCalendar, CycleSummary, CycleCalendarMonth,
+  TrainingCalendar, CycleSummary, CycleCalendarMonth, ThresholdSuggestion,
 } from '../types';
 import { loadSession, saveSession } from '../lib/auth';
 
@@ -356,3 +356,16 @@ export const fetchAvatarUrl = async (): Promise<string | null> => {
     return null;
   }
 };
+
+/** Correct or annotate one activity. Only the fields sent are changed. */
+export const editActivity = async (
+  id: string,
+  changes: Partial<Pick<Activity,
+    'name' | 'sport_type' | 'workout_tag' | 'notes' | 'calories_kcal' | 'steps'>>
+): Promise<Activity> => (await api.patch<Activity>(`/activities/${id}`, changes)).data;
+
+export const getWorkoutTags = async (): Promise<string[]> =>
+  (await api.get<{ tags: string[] }>('/activities/tags')).data.tags;
+
+export const getThresholdSuggestion = async (): Promise<ThresholdSuggestion> =>
+  (await api.get<ThresholdSuggestion>('/settings/threshold-suggestion')).data;

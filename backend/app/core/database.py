@@ -50,6 +50,7 @@ _ADDED_COLUMNS = {
         ("training_effect_anaerobic", "FLOAT"),
         ("recovery_hours", "INTEGER"),
         ("xp", "INTEGER DEFAULT 0"),
+        ("workout_tag", "VARCHAR(32)"),
     ],
     "activity_splits": [
         ("is_partial", "BOOLEAN DEFAULT 0"),

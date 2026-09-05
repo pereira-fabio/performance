@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types';
 import {
   getUserProfile, updateUserProfile, uploadAvatar, deleteAvatar,
+  getThresholdSuggestion,
 } from '../api/client';
+import { ThresholdSuggestion } from '../types';
 import { Modal, Field, input, button } from './Modal';
 import { describeError } from '../lib/errors';
 import { squareThumbnail } from '../lib/image';
@@ -57,6 +59,10 @@ export const SettingsModal: React.FC<{
   // picture that was there a moment ago.
   const [avatarVersion, setAvatarVersion] = useState(0);
   const [picture, setPicture] = useState(false);
+  const [threshold, setThreshold] = useState<ThresholdSuggestion | null>(null);
+  // The pace box is uncontrolled so it can be typed in freely, so changing it
+  // from a button needs a key change to make React rebuild it.
+  const [paceKey, setPaceKey] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,6 +71,8 @@ export const SettingsModal: React.FC<{
     getUserProfile()
       .then((p) => { setProfile(p); setPicture(!!p.has_avatar); })
       .catch((e) => setNote(describeError(e, 'Could not load your profile')));
+    // Worked out from the athlete's own running, and only ever offered.
+    getThresholdSuggestion().then(setThreshold).catch(() => setThreshold(null));
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -289,14 +297,31 @@ export const SettingsModal: React.FC<{
             )}
 
             <Field label="Threshold pace" hint="min:sec per km — the pace you could hold for an hour">
-              <input className={input} defaultValue={paceText(profile.threshold_pace_sec)}
+              <input key={paceKey} className={input}
+                     defaultValue={paceText(profile.threshold_pace_sec)}
                      onBlur={(e) => set('threshold_pace_sec', paceSec(e.target.value))} />
             </Field>
 
+            {/* Offered, never applied. An athlete who has measured this in a
+                test knows better than either estimate, and overwriting that
+                would make every zone worse. */}
+            {threshold?.pace_sec_km != null
+              && Math.abs(threshold.pace_sec_km - profile.threshold_pace_sec) > 2 && (
+              <button type="button"
+                      onClick={() => {
+                        set('threshold_pace_sec', threshold.pace_sec_km!);
+                        setPaceKey((k) => k + 1);
+                      }}
+                      className="text-2xs text-accent hover:underline text-left">
+                Use {paceText(threshold.pace_sec_km)} /km, from {threshold.detail}
+              </button>
+            )}
+
             <p className="text-2xs text-faint">
-              Heart-rate zones and training load come from these. Changing them affects new
-              activities and the fitness curve; the load already stored on past activities is
-              not recalculated.
+              Heart-rate zones and training load come from these. Left at the defaults every
+              run lands in the same zone and every load figure is wrong, so they are worth
+              setting before anything else. Changing them affects new activities and the
+              fitness curve; the load already stored on past activities is not recalculated.
             </p>
           </div>
 

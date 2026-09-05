@@ -4,6 +4,7 @@ import { SportView } from './components/SportView';
 import { HomeView } from './components/HomeView';
 import { PeriodRecap } from './components/PeriodRecap';
 import { StatsView } from './components/StatsView';
+import { EditActivityModal } from './components/EditActivityModal';
 import { ActivityDetail } from './components/ActivityDetail';
 import { SettingsModal } from './components/SettingsModal';
 import { AppSettingsModal } from './components/AppSettingsModal';
@@ -59,6 +60,7 @@ export const App: React.FC = () => {
   // panel, the last finished one from everywhere else.
   const [recapKey, setRecapKey] = useState<string | undefined>(undefined);
   const [statsOpen, setStatsOpen] = useState(false);
+  const [editing, setEditing] = useState<Activity | null>(null);
   // Incremented whenever settings are saved, so views that read a setting
   // directly from the server pick the change up without a full reload.
   const [settingsSaves, setSettingsSaves] = useState(0);
@@ -197,8 +199,18 @@ export const App: React.FC = () => {
       <>
         <Back label="Back"
               onClick={() => { returnScroll.current = backTo.current; setSelected(null); }} />
-        <button onClick={() => { if (confirm('Delete this activity?')) removeActivity(selected.id); }}
-                className="text-2xs text-faint hover:text-negative transition">Delete</button>
+        {/* Edit rather than Delete: deleting is one of the things you might
+            want to do to an activity, and the least common of them. */}
+        <button onClick={() => setEditing(selected)}
+                className="flex items-center gap-1.5 text-2xs font-semibold text-muted
+                           hover:text-fg transition">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          Edit
+        </button>
       </>
     );
     onTabChange = (t) => { setSelected(null); setTab(t); };
@@ -281,6 +293,19 @@ export const App: React.FC = () => {
             onAdmin={() => { setMenuOpen(false); setAdminOpen(true); }} />
       {/* Bumps the same counter as app settings: uploading a picture has to
           refresh the level badge on the home page, which reads it directly. */}
+      <EditActivityModal
+        activity={editing}
+        onClose={() => setEditing(null)}
+        onSaved={(updated) => {
+          // The open detail page is replaced with what the server returned, so
+          // a corrected sport or name is visible without a round trip.
+          setSelected((current) => (current && current.id === updated.id
+            ? { ...current, ...updated } : current));
+          setEditing(null);
+          load();
+        }}
+        onDelete={(id) => { setEditing(null); removeActivity(id); }} />
+
       <SettingsModal isOpen={profileOpen} onClose={() => setProfileOpen(false)}
                      onUpdated={() => { setSettingsSaves((n) => n + 1); load(); }}
                      username={session?.username}

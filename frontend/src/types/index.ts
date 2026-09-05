@@ -85,6 +85,8 @@ export interface Activity {
   source: string;
   notes?: string;
   created_at: string;
+  /** What kind of session the athlete says it was. */
+  workout_tag?: string | null;
   splits?: Split[];
   best_efforts?: BestEffort[];
   stream_data?: {
@@ -333,4 +335,14 @@ export interface CycleCalendarMonth {
   days: Record<string, { flow: string | null; notes: string | null }>;
   predicted: string[];
   today: string;
+}
+
+export interface ThresholdSuggestion {
+  pace_sec_km: number | null;
+  basis: 'hour_effort' | 'vo2max' | null;
+  detail: string | null;
+  current_pace_sec_km: number | null;
+  vo2_max: number | null;
+  vo2_max_estimated: boolean;
+  reason: string | null;
 }
