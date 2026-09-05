@@ -167,6 +167,7 @@ Run with `docker exec -it performance-backend python /data/<script>.py`.
 | `verify_sync.py` | End-to-end checks against everything previously fixed |
 | `check_fields.py` | Which per-activity fields are populated, and where gaps come from |
 | `check_gps.py` | GPS and elevation coverage |
+| `inspect_activity.py` | What one activity arrived with: every channel, its coverage, and the recorded reason for each missing figure. Defaults to the most recent |
 | `inspect_conflicts.py` | The activities the verifier flagged, with context |
 | `backfill_effort.py` | Training effect, recovery and XP for activities stored before they existed |
 | `backfill_tags.py` | Session tags for runs stored before tagging existed. Dry run unless given `--apply`; never touches a tag already set |
@@ -186,6 +187,23 @@ Another app is writing your runs back into Health Connect. The companion filters
 
 **Distance is roughly double**
 Device total and GPS track disagreed. Look at `data_quality.distance` on the activity for the rescale factor.
+
+**Distance and pace are missing on a synced activity**
+The phone sent no speed samples and no GPS route; heart rate alone cannot
+produce either. Confirm with `inspect_activity.py`, which prints the channels
+that arrived and the recorded reason:
+
+```
+speed            [....................] 0%  0 samples
+gps route        ABSENT
+distance         no GPS route and no usable speed series
+```
+
+The usual causes, in the order worth checking: the **Speed**, **Distance** or
+**Exercise routes** permission is off in Health Connect; the recording app
+never wrote them for that session, which happens indoors or when GPS never
+locked; or the session was recorded by an app that writes only a summary. The
+server cannot invent any of it, and says so rather than showing a zero.
 
 **Elevation and GAP are missing**
 No terrain tile covers the route. `python backend/dem_tiles.py` lists what is needed; the activity records the reason under `data_quality.altitude`.
