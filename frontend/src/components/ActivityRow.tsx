@@ -33,8 +33,16 @@ export const ActivityRow: React.FC<{ activity: Activity; onSelect: (a: Activity)
         </span>
 
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-fg-strong truncate group-hover:text-accent transition-colors">
-            {activity.name}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-semibold text-fg-strong truncate group-hover:text-accent transition-colors">
+              {activity.name}
+            </span>
+            {activity.workout_tag && (
+              <span className="shrink-0 px-1.5 py-0.5 rounded bg-surface border border-line
+                               text-2xs font-semibold uppercase tracking-wide text-muted">
+                {activity.workout_tag}
+              </span>
+            )}
           </div>
           <div className="text-xs text-muted tnum">
             {dateLabel(activity.start_time)} · {timeLabel(activity.start_time)}
