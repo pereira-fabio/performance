@@ -41,6 +41,22 @@ Health Connect hides these under **App permissions → Performance Sync → Addi
 
 If a backfill mysteriously stops a month back, this is why.
 
+### Exercise routes must be "Allow all the time"
+
+**`READ_EXERCISE_ROUTES` has three states, not two.** Set to *Ask every time*,
+Health Connect prompts on each read — and a background sync has nobody to answer
+it, so every route comes back refused.
+
+The symptom is a run that syncs with heart rate but **no route, no pace, no
+distance and no moving time**, because pace and distance are derived from the
+route or the speed series. `inspect_activity.py` shows it as
+`gps route ABSENT` alongside a full heart-rate channel.
+
+Set it to **Allow all the time** under Health Connect → App permissions →
+Additional access. The next sync picks the run up and fills it in: the app
+re-reads the last seven days every time, and the server accepts a richer version
+of an activity it already has.
+
 ### When a series is only a summary
 
 Some apps write one speed value for a whole session rather than a series. Each

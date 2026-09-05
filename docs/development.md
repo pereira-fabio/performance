@@ -214,6 +214,10 @@ No terrain tile covers the route. `python backend/dem_tiles.py` lists what is ne
 **Nothing syncs in the background, but "Sync now" works**
 `READ_HEALTH_DATA_IN_BACKGROUND` is not granted.
 
+**A run syncs with heart rate but no route, pace or distance**
+Exercise routes is set to *Ask every time*, which a background sync cannot
+answer. Set it to *Allow all the time*. See [Data sources](data-sources.md).
+
 **Garmin sign-in fails**
 The message carries the underlying reason. The same exception covers a wrong password, a rate limit and a changed login page — a `429` clears on its own.
 

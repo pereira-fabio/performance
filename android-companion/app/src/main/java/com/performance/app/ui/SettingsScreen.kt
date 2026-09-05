@@ -219,8 +219,16 @@ fun SettingsScreen(
                 } else {
                     PermissionLine(s.core, "Workout & health data",
                         "Required — nothing can be read without this.")
+                    // "Ask every time" is a third state that looks granted in
+                    // Health Connect and behaves exactly like off here: it
+                    // prompts on every read, and a background sync at four in
+                    // the morning has nobody to answer it. Naming it is the
+                    // difference between a setting someone finds in a minute
+                    // and one they lose an evening to.
                     PermissionLine(s.routes, "Exercise routes",
-                        "Without this there is no GPS, so no pace or distance.")
+                        "Must be \"Allow all the time\". On \"Ask every time\" the " +
+                            "background sync gets no GPS, so runs arrive with no route, " +
+                            "pace or distance.")
                     PermissionLine(s.history, "Access past data",
                         "Without this only the last 30 days can be read.")
                     PermissionLine(s.background, "Background access",
@@ -233,7 +241,8 @@ fun SettingsScreen(
                                 "changed at any time under Additional access in Health Connect."
                         else
                             "Routes, past data and background access are granted separately, " +
-                                "under Additional access in Health Connect.",
+                                "under Additional access in Health Connect. Set routes to " +
+                                "\"Allow all the time\" rather than \"Ask every time\".",
                         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(12.dp))
