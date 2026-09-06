@@ -173,6 +173,7 @@ Run with `docker exec -it performance-backend python /data/<script>.py`.
 | `inspect_conflicts.py` | The activities the verifier flagged, with context |
 | `backfill_effort.py` | Training effect, recovery and XP for activities stored before they existed |
 | `backfill_tags.py` | Session tags for runs stored before tagging existed. Dry run unless given `--apply`; never touches a tag already set |
+| `backfill_best_efforts.py` | Efforts at distances added to the list after a run was stored, searched in the stored stream rather than by re-syncing. Only fills gaps; never replaces an effort found at ingestion |
 | `rename_activities.py` | Fix names generated with the wrong sport |
 | `fix_garmin_sports.py` | Relabel Garmin activities from the listing, without re-downloading |
 | `reset_activities.py` | Wipe activities for a clean re-sync |

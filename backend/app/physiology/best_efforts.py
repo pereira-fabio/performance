@@ -2,6 +2,9 @@ from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 import numpy as np
 
+# The distances runners actually talk about, kept in order so the records page
+# reads from shortest to longest. A distance nobody has covered simply never
+# produces an effort, so the list costs nothing to extend.
 STANDARD_INTERVALS = [
     {"label": "400m", "distance": 400.0},
     {"label": "800m", "distance": 800.0},
@@ -11,7 +14,10 @@ STANDARD_INTERVALS = [
     {"label": "5k", "distance": 5000.0},
     {"label": "10k", "distance": 10000.0},
     {"label": "15k", "distance": 15000.0},
+    {"label": "10 Miles", "distance": 16093.4},
+    {"label": "20k", "distance": 20000.0},
     {"label": "Half Marathon", "distance": 21097.5},
+    {"label": "30k", "distance": 30000.0},
     {"label": "Marathon", "distance": 42195.0},
 ]
 

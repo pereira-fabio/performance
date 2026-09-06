@@ -290,7 +290,7 @@ speed.
 
 - **Heart-rate zones** from your max, resting and threshold heart rates, and **pace zones** from your threshold pace. Every zone is shown, including those with no time in them: an empty zone says the effort never reached it, and hiding it makes the chart look like it is missing rows. Where almost everything lands in one zone, the thresholds it is measured against are usually still the defaults, and the activity page says so.
 - **Splits** per kilometre, with pace, GAP, heart rate and elevation change. A trailing partial kilometre is marked and excluded from comparisons.
-- **Best efforts** at 400 m, 1 km, 1 mile, 5 km, 10 km, half and full marathon, found as the fastest window anywhere in the activity.
+- **Best efforts** at 400 m, 800 m, 1 km, 1 mile, 2 miles, 5 km, 10 km, 15 km, 10 miles, 20 km, half marathon, 30 km and marathon, found as the fastest window anywhere in the activity. A distance nobody has covered simply produces no effort and never appears.
 - **Personal records** keep the best *three* at each distance, ranked. A record alone does not say whether it was a step or a leap; the two behind it do, and beating your second-fastest 5k is a real result on a day the record is out of reach. Only one entry per run, since a single session holds several efforts at a distance and three rows from one morning is a list of one run. Each opens the run it happened in.
 - **Fastest pace** is the best 30-second window, not an instantaneous GPS spike.
 
